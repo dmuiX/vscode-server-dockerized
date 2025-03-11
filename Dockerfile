@@ -36,8 +36,8 @@ RUN apt-get update && \
 
 USER 1000:1000
 
-RUN # install atuin
-    curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh && \
+    # install atuin
+RUN curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh && \
     # install oh-my-zsh and plugins
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && \
     git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting && \
