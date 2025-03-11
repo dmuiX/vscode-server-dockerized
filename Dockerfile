@@ -2,7 +2,7 @@
 
 FROM ubuntu:24.04
 
-ARG VERSION="1.97.2"
+ARG VERSION="1.98.1"
 
 # hadolint ignore=DL3008
 RUN apt-get update && \
