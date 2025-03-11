@@ -40,7 +40,7 @@ EOF
 RUN groupadd --system --gid 1000 vscode && \
      useradd vscode --uid 1000 --gid 1000 --create-home --shell /usr/bin/zsh && \
      usermod -aG sudo vscode
-     chown -R vscode: /usr/bin/code
+     chown -R vscode: /home/vscode/code
 
 USER 1000:1000
 # entrypoint
