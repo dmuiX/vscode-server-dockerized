@@ -18,7 +18,7 @@ RUN apt-get update && \
     git clone https://github.com/MichaelAquilina/zsh-autoswitch-virtualenv.git ${ZSH_CUSTOM:-${ZSH:-~/.oh-my-zsh}/custom}/plugins/autoswitch_virtualenv && \
     git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/themes/powerlevel10k && \
     # clean up
-    && apt-get autoremove --purge -y && apt-get autoclean && apt-get clean apt-get clean -y && rm -rf /var/lib/apt/lists/*
+    apt-get autoremove --purge -y && apt-get autoclean -y && apt-get clean -y && rm -rf /var/lib/apt/lists/*
 
 ARG VERSION="1.97.2"
 
