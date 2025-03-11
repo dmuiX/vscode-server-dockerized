@@ -18,7 +18,7 @@ RUN apt-get update && \
     git clone https://github.com/MichaelAquilina/zsh-autoswitch-virtualenv.git ${ZSH_CUSTOM:-${ZSH:-~/.oh-my-zsh}/custom}/plugins/autoswitch_virtualenv && \
     git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/themes/powerlevel10k && \
     # clean up
-    && apt-get autoremove -y && apt-get clean -y && rm -rf /var/lib/apt/lists/*
+    && apt-get autoremove --purge -y && apt-get autoclean && apt-get clean apt-get clean -y && rm -rf /var/lib/apt/lists/*
 
 ARG VERSION="1.97.2"
 
@@ -39,10 +39,11 @@ EOF
 
 RUN groupadd --system --gid 1000 vscode && \
      useradd vscode --uid 1000 --gid 1000 --create-home --shell /usr/bin/zsh && \
-     usermod -aG sudo vscode
+     usermod -aG sudo vscode && \
      chown -R vscode: /home/vscode/code
 
 USER 1000:1000
+
 # entrypoint
 ENTRYPOINT [ "code", "serve-web", "--without-connection-token", "--accept-server-license-terms" ]
 
