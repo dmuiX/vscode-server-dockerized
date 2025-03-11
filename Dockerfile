@@ -16,12 +16,12 @@ RUN apt-get update && \
     apt-get autoremove --purge -y && apt-get autoclean -y && apt-get clean -y && rm -rf /var/lib/apt/lists/* && \
     
     # install visual studio code
-    VERSION="1.97.2" && \
+    # DEBUG VERSION="1.97.2" && \
     ARCH="$(dpkg --print-architecture)" && \
     echo "ARCH: $ARCH" && \
-    case "$ARCH" in
-      amd64) export TARGET='cli-linux-x64' ;;
-      arm64) export TARGET='cli-linux-arm64' ;;
+    case "$ARCH" in \
+      amd64) export TARGET='cli-linux-x64' ;; \
+      arm64) export TARGET='cli-linux-arm64' ;; \
     esac && \
     wget -qO- https://update.code.visualstudio.com/${VERSION}/${TARGET}/stable | tar xvz -C /home/ubuntu && \
     chmod +x /home/ubuntu/code && \
