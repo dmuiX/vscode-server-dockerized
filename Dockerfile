@@ -3,7 +3,8 @@
 FROM ubuntu:24.04
 
 ARG VERSION="1.98.1"
-ENV USER_PASSWORD_FILE
+ARG USER_PASSWORD_FILE
+ENV USER_PASSWORD_FILE=${USER_PASSWORD_FILE:-/run/secrets/user_password}
 
 # hadolint ignore=DL3008
 RUN apt-get update && \
