@@ -32,7 +32,7 @@ RUN apt-get update && \
     usermod -aG sudo ubuntu && \
     usermod -l vscode ubuntu && \
     groupmod -n vscode ubuntu && \
-    usermod -d /home/vscode -m vscode && \
+    usermod -d /home/vscode -m vscode
 
 USER 1000:1000
 
