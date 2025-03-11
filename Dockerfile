@@ -6,6 +6,8 @@ ARG VERSION="1.98.1"
 ARG USER_PASSWORD_FILE
 ENV USER_PASSWORD_FILE=${USER_PASSWORD_FILE:-/run/secrets/user_password}
 
+COPY entrypoint.sh /
+
 # hadolint ignore=DL3008
 RUN apt-get update && \
     export DEBIAN_FRONTEND=noninteractive && \
@@ -27,10 +29,12 @@ RUN apt-get update && \
       arm64) export TARGET='cli-linux-arm64' ;; \
     esac && \
     wget -qO- https://update.code.visualstudio.com/${VERSION}/${TARGET}/stable | tar xvz -C /opt && \
-    chmod +x /opt/code && \
+    chmod +x /opt/code /entrypoint.sh && \
     chown -R ubuntu: /opt/code && \
 
     # add user
+    touch /home/ubuntu/.zshrc && \
+    chown ubuntu:ubuntu /home/ubuntu/.zshrc && \
     chsh -s /usr/bin/zsh ubuntu && \
     usermod -aG sudo ubuntu && \
     usermod -l vscode ubuntu && \
@@ -48,10 +52,12 @@ RUN curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh && \
     git clone https://github.com/zsh-users/zsh-completions ${ZSH_CUSTOM:-${ZSH:-~/.oh-my-zsh}/custom}/plugins/zsh-completions && \
     git clone https://github.com/thuandt/zsh-pipx.git ${ZSH_CUSTOM:-${ZSH:-~/.oh-my-zsh}/custom}/plugins/pipx && \
     git clone https://github.com/MichaelAquilina/zsh-autoswitch-virtualenv.git ${ZSH_CUSTOM:-${ZSH:-~/.oh-my-zsh}/custom}/plugins/autoswitch_virtualenv && \
-    git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/themes/powerlevel10k
+    git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/themes/powerlevel10k && \
+    curl -fsSL https://raw.githubusercontent.com/dmuiX/dotnet-files-linux/refs/heads/main/.vimrc?token=GHSAT0AAAAAADAG7ML6KJDQN3GCDSNTYBHQZ6QZNHA > /home/vscode/.vimrc && \
+    curl -fsSL https://raw.githubusercontent.com/dmuiX/dotnet-files-linux/refs/heads/main/.zshrc?token=GHSAT0AAAAAADAG7ML64RXPAO22XCTT4ENOZ6QZOMA > /home/vscode/.zshrc
     
 # entrypoint
-ENTRYPOINT [ "entrypoint.sh" ]
+ENTRYPOINT [ "/entrypoint.sh" ]
 
 HEALTHCHECK NONE
 
