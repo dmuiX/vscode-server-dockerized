@@ -16,7 +16,8 @@ RUN apt-get update && \
     apt-get autoremove --purge -y && apt-get autoclean -y && apt-get clean -y && rm -rf /var/lib/apt/lists/* && \
     
     # install visual studio code
-    # DEBUG VERSION="1.97.2" && \
+    # DEBUG
+    VERSION="1.98.1" && \
     ARCH="$(dpkg --print-architecture)" && \
     echo "ARCH: $ARCH" && \
     case "$ARCH" in \
@@ -48,10 +49,10 @@ RUN curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh && \
     git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/themes/powerlevel10k
 
 # entrypoint
-ENTRYPOINT [ "/home/vscode/code", "serve-web", "--without-connection-token", "--accept-server-license-terms" ]
+ENTRYPOINT [ "/home/vscode/code", "--user-data-dir", "/home/vscode/user-data", "--extensions-dir", "/home/vscode/.vscode/extensions", "serve-web", "--without-connection-token", "--accept-server-license-terms" ]
 
 # default arguments
-CMD [ "--host", "0.0.0.0", "--port", "8000", "--cli-data-dir", "/home/vscode/.vscode/cli-data", "--user-data-dir", "/home/vscode/user-data", "--server-data-dir", "/home/vscode/.vscode/server-data", "--extensions-dir", "/home/vscode/.vscode/extensions" ]
+CMD [ "--host", "0.0.0.0", "--port", "8000", "--cli-data-dir", "/home/vscode/.vscode/cli-data", "--server-data-dir", "/home/vscode/.vscode/server-data" ]
 
 HEALTHCHECK NONE
 
