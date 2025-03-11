@@ -3,6 +3,7 @@
 FROM ubuntu:24.04
 
 ARG VERSION="1.98.1"
+ENV USER_PASSWORD_FILE
 
 # hadolint ignore=DL3008
 RUN apt-get update && \
@@ -47,12 +48,9 @@ RUN curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh && \
     git clone https://github.com/thuandt/zsh-pipx.git ${ZSH_CUSTOM:-${ZSH:-~/.oh-my-zsh}/custom}/plugins/pipx && \
     git clone https://github.com/MichaelAquilina/zsh-autoswitch-virtualenv.git ${ZSH_CUSTOM:-${ZSH:-~/.oh-my-zsh}/custom}/plugins/autoswitch_virtualenv && \
     git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/themes/powerlevel10k
-
+    
 # entrypoint
-ENTRYPOINT [ "/opt/code", "serve-web", "--without-connection-token", "--accept-server-license-terms" ]
-
-# default arguments
-CMD [ "--host", "0.0.0.0", "--port", "8000", "--cli-data-dir", "/home/vscode/.vscode/cli-data", "--server-data-dir", "/home/vscode/.vscode/server-data" ]
+ENTRYPOINT [ "entrypoint.sh" ]
 
 HEALTHCHECK NONE
 
