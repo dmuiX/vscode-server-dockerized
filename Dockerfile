@@ -24,9 +24,9 @@ RUN apt-get update && \
       amd64) export TARGET='cli-linux-x64' ;; \
       arm64) export TARGET='cli-linux-arm64' ;; \
     esac && \
-    wget -qO- https://update.code.visualstudio.com/${VERSION}/${TARGET}/stable | tar xvz -C /home/ubuntu && \
-    chmod +x /home/ubuntu/code && \
-    chown -R ubuntu: /home/ubuntu/code && \
+    wget -qO- https://update.code.visualstudio.com/${VERSION}/${TARGET}/stable | tar xvz -C /opt && \
+    chmod +x /opt/code && \
+    chown -R ubuntu: /opt/code && \
 
     # add user
     chsh -s /usr/bin/zsh ubuntu && \
@@ -34,7 +34,7 @@ RUN apt-get update && \
     usermod -l vscode ubuntu && \
     groupmod -n vscode ubuntu && \
     usermod -d /home/vscode -m vscode
-
+    
 USER 1000:1000
 
     # install atuin
@@ -49,7 +49,7 @@ RUN curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh && \
     git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/themes/powerlevel10k
 
 # entrypoint
-ENTRYPOINT [ "/home/vscode/code", "serve-web", "--without-connection-token", "--accept-server-license-terms" ]
+ENTRYPOINT [ "/opt/code", "--user-data-dir", "/home/vscode/user-data", "--extensions-dir", "/home/vscode/.vscode/extensions", "serve-web", "--without-connection-token", "--accept-server-license-terms" ]
 
 # default arguments
 CMD [ "--host", "0.0.0.0", "--port", "8000", "--cli-data-dir", "/home/vscode/.vscode/cli-data", "--server-data-dir", "/home/vscode/.vscode/server-data" ]
