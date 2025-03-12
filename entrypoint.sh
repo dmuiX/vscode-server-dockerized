@@ -4,8 +4,6 @@
 echo "vscode:$(cat $USER_PASSWORD_FILE | openssl passwd -1 -stdin)" | chpasswd -e
 
 exec su vscode -c '/opt/code \
-    --user-data-dir /home/vscode/.vscode/user-data \
-    --extensions-dir /home/vscode/.vscode/extensions \
     serve-web \
     --without-connection-token \
     --accept-server-license-terms \
