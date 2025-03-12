@@ -29,7 +29,7 @@ RUN apt-get update && \
       arm64) export TARGET='cli-linux-arm64' ;; \
     esac && \
     wget -qO- https://update.code.visualstudio.com/${VERSION}/${TARGET}/stable | tar xvz -C /opt && \
-    chmod +x /opt/code /entrypoint.sh && \
+    chmod +x /opt/code /home/ubuntu/entrypoint.sh && \
     chown -R ubuntu: /opt/code && \
 
     # add user
