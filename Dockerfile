@@ -1,5 +1,3 @@
-# kics-scan disable=67fd0c4a-68cf-46d7-8c41-bc9fba7e40ae,965a08d7-ef86-4f14-8792-4a3b2098937e
-
 FROM ubuntu:24.04
 
 ARG VERSION="1.98.1"
@@ -34,6 +32,7 @@ RUN apt-get update && \
     touch /home/ubuntu/.zshrc && \
     chown ubuntu:ubuntu /home/ubuntu/.zshrc && \
     chsh -s /usr/bin/zsh ubuntu && \
+    #usermod --password $(ubuntu | openssl passwd -1 -stdin) vscode && \
     usermod -aG sudo ubuntu && \
     usermod -l vscode ubuntu && \
     groupmod -n vscode ubuntu && \
