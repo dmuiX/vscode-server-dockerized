@@ -33,11 +33,13 @@ RUN apt-get update && \
     chown ubuntu:ubuntu /home/ubuntu/.zshrc && \
     chsh -s /usr/bin/zsh ubuntu && \
     usermod -aG sudo ubuntu && \
+    #echo "vscode:$(ubuntu | openssl passwd -1 -stdin)" | sudo chpasswd -e && \
     usermod -l vscode ubuntu && \
     groupmod -n vscode ubuntu && \
     usermod -d /home/vscode -m vscode
     
 # until here everything runs as root! therefore also every file created belongs to root until here if not changed!
+
 
 USER 1000:100
 
@@ -53,6 +55,8 @@ RUN curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh && \
     git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/themes/powerlevel10k && \
     cd ~/ curl -fsSL -O https://raw.githubusercontent.com/dmuiX/dotnet-files-linux/refs/heads/main/.vimrc && \
     curl -fsSL -O https://raw.githubusercontent.com/dmuiX/dotnet-files-linux/refs/heads/main/.zshrc
+
+USER root
 
 # Set working directory
 WORKDIR /home/vscode    
