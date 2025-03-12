@@ -57,7 +57,7 @@ RUN curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh && \
     curl -fsSL -O https://raw.githubusercontent.com/dmuiX/dotnet-files-linux/refs/heads/main/.zshrc
     
 # entrypoint
-ENTRYPOINT [ "~/entrypoint.sh" ]
+ENTRYPOINT [ "/home/vscode/entrypoint.sh" ] # ~/ not working!
 
 HEALTHCHECK NONE
 
