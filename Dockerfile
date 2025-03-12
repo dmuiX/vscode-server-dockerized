@@ -6,7 +6,7 @@ ARG VERSION="1.98.1"
 ARG USER_PASSWORD_FILE
 ENV USER_PASSWORD_FILE=${USER_PASSWORD_FILE:-/run/secrets/user_password}
 
-COPY entrypoint.sh /home/ubuntu/
+COPY entrypoint.sh /
 
 RUN apt-get update && \
     export DEBIAN_FRONTEND=noninteractive && \
@@ -27,8 +27,8 @@ RUN apt-get update && \
       arm64) export TARGET='cli-linux-arm64' ;; \
     esac && \
     wget -qO- https://update.code.visualstudio.com/${VERSION}/${TARGET}/stable | tar xvz -C /opt && \
-    chmod +x /opt/code /home/ubuntu/entrypoint.sh && \
-    chown -R ubuntu: /opt/code /home/ubuntu/entrypoint.sh && \
+    chmod +x /opt/code /entrypoint.sh && \
+    chown -R ubuntu: /opt/code /entrypoint.sh && \
 
     # add user and change the home directory to this user
     touch /home/ubuntu/.zshrc && \
@@ -42,7 +42,6 @@ RUN apt-get update && \
 # until here everything runs as root! therefore also every file created belongs to root until here if not changed!
 
 USER 1000:1000
-
 
     # install atuin
 RUN curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh && \
@@ -61,7 +60,7 @@ RUN curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh && \
 WORKDIR /home/vscode    
 
 # entrypoint ~/ not working!
-ENTRYPOINT [ "/home/vscode/entrypoint.sh" ]
+ENTRYPOINT [ "/entrypoint.sh" ]
 
 HEALTHCHECK NONE
 
