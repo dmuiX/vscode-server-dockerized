@@ -11,7 +11,7 @@ RUN apt-get update && \
     apt-get upgrade -y && \
     
     # tools & required packages
-    apt-get install -y --no-install-recommends git curl wget ca-certificates software-properties-common inetutils-ping dnsutils ncat nmap zsh vim vim-airline vim-airline-themes vim-lastplace sudo && \
+    apt-get install -y --no-install-recommends git curl wget ca-certificates software-properties-common inetutils-ping dnsutils ncat nmap zsh vim vim-airline vim-airline-themes vim-lastplace sudo batcat && \
     
     # clean up
     apt-get autoremove --purge -y && apt-get autoclean -y && apt-get clean -y && rm -rf /var/lib/apt/lists/* && \
