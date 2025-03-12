@@ -40,7 +40,6 @@ RUN apt-get update && \
     
 # until here everything runs as root! therefore also every file created belongs to root until here if not changed!
 
-
 USER 1000:100
 
     # install atuin
