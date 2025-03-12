@@ -32,7 +32,6 @@ RUN apt-get update && \
     touch /home/ubuntu/.zshrc && \
     chown ubuntu:ubuntu /home/ubuntu/.zshrc && \
     chsh -s /usr/bin/zsh ubuntu && \
-    #usermod --password $(ubuntu | openssl passwd -1 -stdin) vscode && \
     usermod -aG sudo ubuntu && \
     usermod -l vscode ubuntu && \
     groupmod -n vscode ubuntu && \
@@ -40,7 +39,7 @@ RUN apt-get update && \
     
 # until here everything runs as root! therefore also every file created belongs to root until here if not changed!
 
-USER 1000:1000
+USER 1000:100
 
     # install atuin
 RUN curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh && \
@@ -58,7 +57,7 @@ RUN curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh && \
 # Set working directory
 WORKDIR /home/vscode    
 
-# entrypoint ~/ not working!
+# entrypoint ~/ not working! and also /home/vscode/ not working
 ENTRYPOINT [ "/entrypoint.sh" ]
 
 HEALTHCHECK NONE
