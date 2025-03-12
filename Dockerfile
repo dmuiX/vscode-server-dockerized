@@ -43,6 +43,7 @@ RUN apt-get update && \
 
 USER 1000:1000
 
+
     # install atuin
 RUN curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh && \
     # install oh-my-zsh and plugins
@@ -55,7 +56,10 @@ RUN curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh && \
     git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/themes/powerlevel10k && \
     cd ~/ curl -fsSL -O https://raw.githubusercontent.com/dmuiX/dotnet-files-linux/refs/heads/main/.vimrc && \
     curl -fsSL -O https://raw.githubusercontent.com/dmuiX/dotnet-files-linux/refs/heads/main/.zshrc
-    
+
+# Set working directory
+WORKDIR /home/vscode    
+
 # entrypoint ~/ not working!
 ENTRYPOINT [ "/home/vscode/entrypoint.sh" ]
 
