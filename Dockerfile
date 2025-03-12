@@ -6,7 +6,7 @@ ARG VERSION="1.98.1"
 ARG USER_PASSWORD_FILE
 ENV USER_PASSWORD_FILE=${USER_PASSWORD_FILE:-/run/secrets/user_password}
 
-COPY entrypoint.sh /
+COPY entrypoint.sh /home/ubuntu/
 
 # hadolint ignore=DL3008
 RUN apt-get update && \
@@ -53,10 +53,11 @@ RUN curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh && \
     git clone https://github.com/thuandt/zsh-pipx.git ${ZSH_CUSTOM:-${ZSH:-~/.oh-my-zsh}/custom}/plugins/pipx && \
     git clone https://github.com/MichaelAquilina/zsh-autoswitch-virtualenv.git ${ZSH_CUSTOM:-${ZSH:-~/.oh-my-zsh}/custom}/plugins/autoswitch_virtualenv && \
     git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/themes/powerlevel10k && \
-    git clone https://github.com/dmuiX/dotnet-files-linux/ ~/
+    cd ~/ curl -fsSL -O https://raw.githubusercontent.com/dmuiX/dotnet-files-linux/refs/heads/main/.vimrc && \
+    curl -fsSL -O https://raw.githubusercontent.com/dmuiX/dotnet-files-linux/refs/heads/main/.zshrc
     
 # entrypoint
-ENTRYPOINT [ "/entrypoint.sh" ]
+ENTRYPOINT [ "~/entrypoint.sh" ]
 
 HEALTHCHECK NONE
 
