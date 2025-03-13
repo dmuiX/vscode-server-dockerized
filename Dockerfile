@@ -1,6 +1,5 @@
 FROM ubuntu:24.04
 
-ARG VERSION="1.98.1"
 ARG USER_PASSWORD_FILE
 ENV USER_PASSWORD_FILE=${USER_PASSWORD_FILE:-/run/secrets/user_password}
 
@@ -20,20 +19,23 @@ RUN apt-get update && \
     apt-get update && apt-get install terraform && \
 
     # digitalocean-cli
-    curl -sL https://repos.insights.digitalocean.com/install.sh | bash && \
+    DOCTL_VERSION="1.123.0" && \
+    curl -L https://github.com/digitalocean/doctl/releases/download/v${DOCTL_VERSION}/doctl-${DOCTL_VERSION}-linux-amd64.tar.gz | tar -xzC /usr/local/bin && \
+    chmod +x /usr/local/bin/doctl && \
+    doctl version
 
     # clean up
     apt-get autoremove --purge -y && apt-get autoclean -y && apt-get clean -y && rm -rf /var/lib/apt/lists/* && \
     
     # install visual studio code and set some permissions
-    VERSION="1.98.1" && \
+    CODE_VERSION="1.98.1" && \
     ARCH="$(dpkg --print-architecture)" && \
     echo "ARCH: $ARCH" && \
     case "$ARCH" in \
       amd64) export TARGET='cli-linux-x64' ;; \
       arm64) export TARGET='cli-linux-arm64' ;; \
     esac && \
-    wget -qO- https://update.code.visualstudio.com/${VERSION}/${TARGET}/stable | tar xvz -C /opt && \
+    wget -qO- https://update.code.visualstudio.com/${CODE_VERSION}/${TARGET}/stable | tar xvz -C /opt && \
     chmod +x /opt/code /entrypoint.sh && \
     chown -R ubuntu: /opt/code /entrypoint.sh && \
 
