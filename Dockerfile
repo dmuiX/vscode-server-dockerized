@@ -43,8 +43,9 @@ RUN apt-get update && \
     touch /home/ubuntu/.zshrc && \
     chown ubuntu:ubuntu /home/ubuntu/.zshrc && \
     chsh -s /usr/bin/zsh ubuntu && \
-    usermod -aG sudo ubuntu && \
-    #echo "vscode:$(ubuntu | openssl passwd -1 -stdin)" | sudo chpasswd -e && \
+    groupadd -g 100 users && \
+    usermod -aG sudo ubuntu users && \
+    usermod -g users vscode && \
     usermod -l vscode ubuntu && \
     groupmod -n vscode ubuntu && \
     usermod -d /home/vscode -m vscode
