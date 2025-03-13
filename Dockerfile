@@ -44,6 +44,8 @@ RUN apt-get update && \
     chown ubuntu:ubuntu /home/ubuntu/.zshrc && \
     chsh -s /usr/bin/zsh ubuntu && \
     usermod -aG sudo ubuntu users && \
+    # set users as primary group for vscode
+    usermod -g users ubuntu && \ 
     usermod -l vscode ubuntu && \
     groupmod -n vscode ubuntu && \
     usermod -d /home/vscode -m vscode
