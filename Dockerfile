@@ -11,8 +11,17 @@ RUN apt-get update && \
     apt-get upgrade -y && \
     
     # tools & required packages
-    apt-get install -y --no-install-recommends git curl wget ca-certificates software-properties-common inetutils-ping dnsutils ncat nmap zsh vim vim-airline vim-airline-themes vim-lastplace sudo bat && \
+    apt-get install -y --no-install-recommends git curl wget ca-certificates gnupg2 software-properties-common \ 
+    inetutils-ping dnsutils ncat nmap zsh vim vim-airline vim-airline-themes vim-lastplace sudo bat && \
     
+    # terraform
+    curl -fsSL https://apt.releases.hashicorp.com/gpg | apt-key add - && \
+    apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main" && \
+    apt-get update && apt-get install terraform && \
+
+    # digitalocean-cli
+    curl -sL https://repos.insights.digitalocean.com/install.sh | bash && \
+
     # clean up
     apt-get autoremove --purge -y && apt-get autoclean -y && apt-get clean -y && rm -rf /var/lib/apt/lists/* && \
     
@@ -59,7 +68,7 @@ RUN curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh && \
 USER root
 
 # Set working directory
-WORKDIR /home/vscode    
+WORKDIR /home/vscode
 
 # entrypoint ~/ not working! and also /home/vscode/ not working
 ENTRYPOINT [ "/entrypoint.sh" ]
