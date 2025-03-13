@@ -22,7 +22,7 @@ RUN apt-get update && \
     DOCTL_VERSION="1.123.0" && \
     curl -L https://github.com/digitalocean/doctl/releases/download/v${DOCTL_VERSION}/doctl-${DOCTL_VERSION}-linux-amd64.tar.gz | tar -xzC /usr/local/bin && \
     chmod +x /usr/local/bin/doctl && \
-    doctl version
+    doctl version && \
 
     # clean up
     apt-get autoremove --purge -y && apt-get autoclean -y && apt-get clean -y && rm -rf /var/lib/apt/lists/* && \
@@ -51,7 +51,7 @@ RUN apt-get update && \
     
 # until here everything runs as root! therefore also every file created belongs to root until here if not changed!
 
-USER 1000:100
+USER 1000:100 #this works!
 
     # install atuin
 RUN curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh && \
