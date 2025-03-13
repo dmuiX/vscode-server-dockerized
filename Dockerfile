@@ -51,7 +51,7 @@ RUN apt-get update && \
     
 # until here everything runs as root! therefore also every file created belongs to root until here if not changed!
 
-USER 1000:100 #this works!
+USER vscode
 
     # install atuin
 RUN curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh && \
