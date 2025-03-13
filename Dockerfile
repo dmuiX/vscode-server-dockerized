@@ -43,11 +43,11 @@ RUN apt-get update && \
     touch /home/ubuntu/.zshrc && \
     chown ubuntu:ubuntu /home/ubuntu/.zshrc && \
     chsh -s /usr/bin/zsh ubuntu && \
-    usermod -aG sudo ubuntu users && \
-    # set users as primary group for vscode
-    usermod -g users ubuntu && \ 
-    usermod -l vscode ubuntu && \
+    
+    usermod -aG sudo ubuntu && \
     groupmod -n vscode ubuntu && \
+    usermod -l vscode ubuntu && \
+    usermod -g users vscode && \
     usermod -d /home/vscode -m vscode
     
 # until here everything runs as root! therefore also every file created belongs to root until here if not changed!
