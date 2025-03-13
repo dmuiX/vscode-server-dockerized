@@ -62,7 +62,7 @@ RUN curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh && \
     git clone https://github.com/MichaelAquilina/zsh-autoswitch-virtualenv.git ${ZSH_CUSTOM:-${ZSH:-~/.oh-my-zsh}/custom}/plugins/autoswitch_virtualenv && \
     git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/themes/powerlevel10k && \
     cd ~/ curl -fsSL -O https://raw.githubusercontent.com/dmuiX/dotnet-files-linux/refs/heads/main/.vimrc && \
-    curl -fsSL -O https://raw.githubusercontent.com/dmuiX/dotnet-files-linux/refs/heads/main/.zshrc && ]
+    curl -fsSL -O https://raw.githubusercontent.com/dmuiX/dotnet-files-linux/refs/heads/main/.zshrc && \
     curl -fsSL -O https://raw.githubusercontent.com/dmuiX/dotnet-files-linux/refs/heads/main/.p10k
 
 USER root
