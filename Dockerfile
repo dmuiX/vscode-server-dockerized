@@ -68,8 +68,7 @@ RUN curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh && \
     cd ~/ && \
     curl -fsSL -O https://raw.githubusercontent.com/dmuiX/dotnet-files-linux/refs/heads/main/.vimrc && \
     curl -fsSL -O https://raw.githubusercontent.com/dmuiX/dotnet-files-linux/refs/heads/main/.zshrc && \
-    curl -fsSL -O https://raw.githubusercontent.com/dmuiX/dotnet-files-linux/refs/heads/main/.p10k && \
-    atuin gen-completions --shell zsh > ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-completions/src/_atuin
+    curl -fsSL -O https://raw.githubusercontent.com/dmuiX/dotnet-files-linux/refs/heads/main/.p10k
 
 USER root
 
