@@ -22,8 +22,7 @@ RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
 RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
     DOCTL_VERSION=$(curl -fsSL https://api.github.com/repos/digitalocean/doctl/releases/latest | jq -r '.tag_name' | sed 's/^v//') && \
     echo "Installing doctl version \"$DOCTL_VERSION\"" && \
-    curl -fsSL "https://github.com/digitalocean/doctl/releases/download/v${DOCTL_VERSION}/doctl-${DOCTL_VERSION}-linux-amd64.tar.gz" | tar -xzC /usr/local/bin && \
-    chmod +x /usr/local/bin/doctl
+    curl -fsSL "https://github.com/digitalocean/doctl/releases/download/v${DOCTL_VERSION}/doctl-${DOCTL_VERSION}-linux-amd64.tar.gz" | tar -xzC /usr/local/bin
 
 # Setup VSCode Insiders
 RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
@@ -36,8 +35,7 @@ RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
     echo "Detected architecture: \"$ARCH\"" && \
     COMMIT_HASH=$(curl -fsSL "https://update.code.visualstudio.com/api/commits/insider/${TARGET_API}" | jq -r '.[0]') && \
     echo "Fetching VSCode Insiders commit \"$COMMIT_HASH\"" && \
-    curl -fsSL "https://update.code.visualstudio.com/commit:$COMMIT_HASH/${TARGET_DL}/insider" | tar xvz -C /opt && \
-    chmod +x /opt/code-insiders /entrypoint.sh
+    curl -fsSL "https://update.code.visualstudio.com/commit:$COMMIT_HASH/${TARGET_DL}/insider" | tar xvz -C /opt
 
 # -------------------------------------------------------------------------
 # Commented out stable VSCode install code for reference:
@@ -64,21 +62,24 @@ ENV USER_PASSWORD_FILE=${USER_PASSWORD_FILE:-/run/secrets/user_password}
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install runtime dependencies only
+# Install runtime dependencies only and clean up
 RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
     apt-get update && apt-get upgrade -y --no-install-recommends && apt-get install -y --no-install-recommends \
     ca-certificates curl zsh vim sudo bat inetutils-ping dnsutils ncat nmap && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    apt-get clean && \
+    apt-get autoclean && \
+    apt-get autoremove --purge -y && \
+    rm -rf /var/lib/apt/lists/* /usr/share/doc/* /usr/share/man/* /usr/share/locales/*
 
 # Copy binaries and VSCode code folder from builder stage
 COPY --from=builder /usr/local/bin/doctl /usr/local/bin/doctl
 COPY --from=builder /usr/bin/terraform /usr/bin/terraform
-COPY --from=builder /opt/code /opt/code
-COPY --from=builder /entrypoint.sh /entrypoint.sh
+COPY --from=builder /opt/code-insiders /opt/code-insiders
+COPY entrypoint.sh /entrypoint.sh
 
 RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
-    chmod +x /usr/local/bin/doctl /usr/bin/terraform /opt/code /entrypoint.sh && \
-    chown -R root:root /opt/code /entrypoint.sh
+    chmod +x /usr/local/bin/doctl /usr/bin/terraform /opt/code-insiders /entrypoint.sh && \
+    chown -R root:root /opt/code-insiders /entrypoint.sh
 
 # Add user and permissions setup as before
 RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
