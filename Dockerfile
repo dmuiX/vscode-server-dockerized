@@ -25,7 +25,17 @@ RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
     curl -fsSL "https://github.com/digitalocean/doctl/releases/download/v${DOCTL_VERSION}/doctl-${DOCTL_VERSION}-linux-amd64.tar.gz" | tar -xzC /usr/local/bin
 
 # Setup VSCode Insiders
-RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
+RUN retry() { \
+      n=0; \
+      until [ $n -ge 5 ]; do \
+        "$@" && break; \
+        n=$((n+1)); \
+        echo "Retry #$n for command: $*"; \
+        sleep 3; \
+      done; \
+    }; \
+    \
+    if [ "$DEBUG" = "true" ]; then set -x; fi && \
     ARCH=$(dpkg --print-architecture) && \
     case "$ARCH" in \
       amd64) TARGET_API='linux-x64' ; TARGET_DL='cli-linux-x64' ;; \
@@ -33,9 +43,11 @@ RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
       *) echo "Unsupported architecture: \"$ARCH\"" && exit 1 ;; \
     esac && \
     echo "Detected architecture: \"$ARCH\"" && \
-    COMMIT_HASH=$(curl -fsSL "https://update.code.visualstudio.com/api/commits/insider/${TARGET_API}" | jq -r '.[0]') && \
+    COMMIT_HASH=$(retry curl -kfsSL "https://update.code.visualstudio.com/api/commits/insider/${TARGET_API}" | jq -r '.[0]') && \
+    if [ -z "$COMMIT_HASH" ]; then echo "ERROR: Failed to fetch commit hash for VSCode Insiders"; exit 1; fi && \
     echo "Fetching VSCode Insiders commit \"$COMMIT_HASH\"" && \
-    curl -fsSL "https://update.code.visualstudio.com/commit:$COMMIT_HASH/${TARGET_DL}/insider" | tar xvz -C /opt
+    retry curl -kfsSL "https://update.code.visualstudio.com/commit:$COMMIT_HASH/${TARGET_DL}/insider" | tar xvz -C /opt && \
+    chmod +x /opt/code-insiders /entrypoint.sh
 
 # -------------------------------------------------------------------------
 # Commented out stable VSCode install code for reference:
