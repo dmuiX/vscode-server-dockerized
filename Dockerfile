@@ -37,7 +37,7 @@ RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
     COMMIT_HASH=$(curl -fsSL "https://update.code.visualstudio.com/api/commits/insider/${TARGET_API}" | jq -r '.[0]') && \
     echo "Fetching VSCode Insiders commit \"$COMMIT_HASH\"" && \
     curl -fsSL "https://update.code.visualstudio.com/commit:$COMMIT_HASH/${TARGET_DL}/insider" | tar xvz -C /opt && \
-    chmod +x /opt/code /entrypoint.sh
+    chmod +x /opt/code-insiders /entrypoint.sh
 
 # -------------------------------------------------------------------------
 # Commented out stable VSCode install code for reference:
