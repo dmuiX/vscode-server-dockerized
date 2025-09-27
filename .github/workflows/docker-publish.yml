@@ -88,7 +88,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           # Adds more output to debug
-          progress: plain
           platforms: linux/amd64,linux/arm64
           build-args: |
             USER_PASSWORD_FILE=/run/secrets/user_password
