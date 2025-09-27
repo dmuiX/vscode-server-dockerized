@@ -19,7 +19,7 @@ RUN apt-get update && \
     apt-get update && apt-get install terraform && \
 
     # digitalocean-cli
-    DOCTL_VERSION="1.123.0" && \
+    DOCTL_VERSION="1.145.0 " && \
     curl -L https://github.com/digitalocean/doctl/releases/download/v${DOCTL_VERSION}/doctl-${DOCTL_VERSION}-linux-amd64.tar.gz | tar -xzC /usr/local/bin && \
     chmod +x /usr/local/bin/doctl && \
     doctl version && \
@@ -27,17 +27,41 @@ RUN apt-get update && \
     # clean up
     apt-get autoremove --purge -y && apt-get autoclean -y && apt-get clean -y && rm -rf /var/lib/apt/lists/* && \
     
-    # install visual studio code and set some permissions
-    CODE_VERSION="1.98.1" && \
-    ARCH="$(dpkg --print-architecture)" && \
-    echo "ARCH: $ARCH" && \
-    case "$ARCH" in \
-      amd64) export TARGET='cli-linux-x64' ;; \
-      arm64) export TARGET='cli-linux-arm64' ;; \
-    esac && \
-    wget -qO- https://update.code.visualstudio.com/${CODE_VERSION}/${TARGET}/stable | tar xvz -C /opt && \
+    # insiders version
+    # fetch latest commit hash for insiders
+    
+    ARCH="$(dpkg --print-architecture)"
+    echo "ARCH: $ARCH"
+    
+    # Map dpkg architecture to VS Code target strings
+    case "$ARCH" in
+      amd64) TARGET_API='linux-x64' ; TARGET_DL='cli-linux-x64' ;;
+      arm64) TARGET_API='linux-arm64' ; TARGET_DL='cli-linux-arm64' ;;
+      *) echo "Unsupported architecture" && exit 1 ;;
+    esac
+    
+    # Fetch latest commit hash for Insiders from corrected API URL with proper target
+    COMMIT_HASH=$(wget -qO- https://update.code.visualstudio.com/api/commits/insider/${TARGET_API} | jq -r '.[0]')
+    
+    echo "Using commit hash: $COMMIT_HASH for Insiders build"
+    
+    # Download the Insiders build tarball using the commit hash and target
+    wget -qO- https://update.code.visualstudio.com/commit:$COMMIT_HASH/${TARGET_DL}/insider | tar xvz -C /opt && \
     chmod +x /opt/code /entrypoint.sh && \
-    chown -R ubuntu: /opt/code /entrypoint.sh && \
+    chown -R ubuntu: /opt/code /entrypoint.sh
+    
+    # stable
+    # install visual studio code and set some permissions
+    #CODE_VERSION="latest" && \
+    #ARCH="$(dpkg --print-architecture)" && \
+    #echo "ARCH: $ARCH" && \
+    #case "$ARCH" in \
+    #  amd64) export TARGET='cli-linux-x64' ;; \
+    #  arm64) export TARGET='cli-linux-arm64' ;; \
+    #esac && \
+    ##wget -qO- https://update.code.visualstudio.com/${CODE_VERSION}/${TARGET}/stable | tar xvz -C /opt && \
+    #chmod +x /opt/code /entrypoint.sh && \
+    #chown -R ubuntu: /opt/code /entrypoint.sh && \
 
     # add user and change the home directory to this user
     touch /home/ubuntu/.zshrc && \
