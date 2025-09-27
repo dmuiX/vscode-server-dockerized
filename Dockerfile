@@ -19,10 +19,9 @@ RUN apt-get update && \
     apt-get update && apt-get install terraform && \
 
     # digitalocean-cli
-    DOCTL_VERSION="1.145.0 " && \
-    curl -L https://github.com/digitalocean/doctl/releases/download/v${DOCTL_VERSION}/doctl-${DOCTL_VERSION}-linux-amd64.tar.gz | tar -xzC /usr/local/bin && \
-    chmod +x /usr/local/bin/doctl && \
-    doctl version && \
+    curl -L https://github.com/digitalocean/doctl/releases/download/v${DOCTL_VERSION}/doctl-${DOCTL_VERSION}-linux-amd64.tar.gz | tar -xzC /usr/local/bin
+    chmod +x /usr/local/bin/doctl
+    doctl version
 
     # clean up
     apt-get autoremove --purge -y && apt-get autoclean -y && apt-get clean -y && rm -rf /var/lib/apt/lists/* && \
