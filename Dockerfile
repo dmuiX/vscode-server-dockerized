@@ -46,9 +46,8 @@ RUN retry() { \
     COMMIT_HASH=$(retry curl -kfsSL "https://update.code.visualstudio.com/api/commits/insider/${TARGET_API}" | jq -r '.[0]') && \
     if [ -z "$COMMIT_HASH" ]; then echo "ERROR: Failed to fetch commit hash for VSCode Insiders"; exit 1; fi && \
     echo "Fetching VSCode Insiders commit \"$COMMIT_HASH\"" && \
-    retry curl -kfsSL "https://update.code.visualstudio.com/commit:$COMMIT_HASH/${TARGET_DL}/insider" | tar xvz -C /opt && \
-    chmod +x /opt/code-insiders /entrypoint.sh
-
+    retry curl -kfsSL "https://update.code.visualstudio.com/commit:$COMMIT_HASH/${TARGET_DL}/insider" | tar xvz -C /opt
+    
 # -------------------------------------------------------------------------
 # Commented out stable VSCode install code for reference:
 # 
