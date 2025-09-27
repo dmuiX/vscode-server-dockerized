@@ -5,30 +5,28 @@ ARG DEBUG=false
 ENV DEBUG=${DEBUG}
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN set -o pipefail && \
-    if [ "$DEBUG" = "true" ]; then set -x ; fi && \
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+RUN if [ "$DEBUG" = "true" ]; then set -x ; fi && \
     apt-get update && apt-get install -y --no-install-recommends \
     curl jq wget tar ca-certificates gnupg2 software-properties-common \
     lsb-release apt-transport-https
 
 # Install Terraform repo and terraform binary
-RUN set -o pipefail && \
-    if [ "$DEBUG" = "true" ]; then set -x; fi && \
+RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
     curl -fsSL https://apt.releases.hashicorp.com/gpg | apt-key add - && \
     apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main" && \
     apt-get update && apt-get install -y --no-install-recommends terraform
 
 # Fetch latest doctl version
-RUN set -o pipefail && \
-    if [ "$DEBUG" = "true" ]; then set -x; fi && \
+RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
     DOCTL_VERSION=$(curl -fsSL https://api.github.com/repos/digitalocean/doctl/releases/latest | jq -r '.tag_name' | sed 's/^v//') && \
     echo "Installing doctl version \"$DOCTL_VERSION\"" && \
     curl -fsSL "https://github.com/digitalocean/doctl/releases/download/v${DOCTL_VERSION}/doctl-${DOCTL_VERSION}-linux-amd64.tar.gz" | tar -xzC /usr/local/bin && \
     chmod +x /usr/local/bin/doctl
 
 # Setup VSCode Insiders
-RUN set -o pipefail && \
-    if [ "$DEBUG" = "true" ]; then set -x; fi && \
+RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
     ARCH=$(dpkg --print-architecture) && \
     case "$ARCH" in \
       amd64) TARGET_API='linux-x64' ; TARGET_DL='cli-linux-x64' ;; \
@@ -67,8 +65,7 @@ ENV USER_PASSWORD_FILE=${USER_PASSWORD_FILE:-/run/secrets/user_password}
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install runtime dependencies only
-RUN set -o pipefail && \
-    if [ "$DEBUG" = "true" ]; then set -x; fi && \
+RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
     apt-get update && apt-get upgrade -y --no-install-recommends && apt-get install -y --no-install-recommends \
     ca-certificates curl zsh vim sudo bat inetutils-ping dnsutils ncat nmap && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -79,14 +76,12 @@ COPY --from=builder /usr/bin/terraform /usr/bin/terraform
 COPY --from=builder /opt/code /opt/code
 COPY --from=builder /entrypoint.sh /entrypoint.sh
 
-RUN set -o pipefail && \
-    if [ "$DEBUG" = "true" ]; then set -x; fi && \
+RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
     chmod +x /usr/local/bin/doctl /usr/bin/terraform /opt/code /entrypoint.sh && \
     chown -R root:root /opt/code /entrypoint.sh
 
 # Add user and permissions setup as before
-RUN set -o pipefail && \
-    if [ "$DEBUG" = "true" ]; then set -x; fi && \
+RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
     useradd -ms /bin/zsh vscode && \
     usermod -aG sudo vscode && \
     groupmod -n vscode vscode && \
