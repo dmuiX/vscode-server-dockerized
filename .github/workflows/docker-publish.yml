@@ -20,7 +20,7 @@ env:
   REGISTRY: ghcr.io
   # github.repository as <account>/<repo>
   IMAGE_NAME: ${{ github.repository }}
-
+  
 
 jobs:
   build:
@@ -92,19 +92,28 @@ jobs:
           build-args: |
             USER_PASSWORD_FILE=/run/secrets/user_password
             DEBUG=true
-
+            
+      - name: Create password file from secret
+        run: echo "secret" > ${{ github.workspace }}/test-password.txt
+        
       - name: Test built image binaries
         run: |
-          docker run --rm ${{ steps.meta.outputs.tags }} doctl version
-          docker run --rm ${{ steps.meta.outputs.tags }} terraform version
-          docker run --rm ${{ steps.meta.outputs.tags }} /opt/code --version
+          docker run --rm -v ${{ github.workspace }}/test-password.txt:/run/secrets/user_password:ro \
+            -e USER_PASSWORD_FILE=/run/secrets/user_password ${{ steps.meta.outputs.tags }} doctl version
+          docker run --rm -v ${{ github.workspace }}/test-password.txt:/run/secrets/user_password:ro \
+            -e USER_PASSWORD_FILE=/run/secrets/user_password ${{ steps.meta.outputs.tags }} terraform version
+          docker run --rm -v ${{ github.workspace }}/test-password.txt:/run/secrets/user_password:ro \
+            -e USER_PASSWORD_FILE=/run/secrets/user_password ${{ steps.meta.outputs.tags }} /opt/code-insiders --version
 
       - name: Inspect Docker manifest
         run: docker manifest inspect ${{ steps.meta.outputs.tags }}
 
       - name: Run container and check health
         run: |
-          docker run -d --name testcontainer ${{ steps.meta.outputs.tags }}
+          docker run -d --name testcontainer \
+            -v ${{ github.workspace }}/test-password.txt:/run/secrets/user_password:ro \
+            -e USER_PASSWORD_FILE=/run/secrets/user_password \
+            ${{ steps.meta.outputs.tags }}
           sleep 10
           docker inspect --format='{{json .State.Health}}' testcontainer
           docker logs testcontainer
