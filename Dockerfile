@@ -5,7 +5,7 @@ ARG DEBUG=false
 ENV DEBUG=${DEBUG}
 ENV DEBIAN_FRONTEND=noninteractive
 
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 RUN if [ "$DEBUG" = "true" ]; then set -x ; fi && \
     apt-get update && apt-get install -y --no-install-recommends \
@@ -14,8 +14,10 @@ RUN if [ "$DEBUG" = "true" ]; then set -x ; fi && \
 
 # Install Terraform repo and terraform binary
 RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
-    curl -fsSL https://apt.releases.hashicorp.com/gpg | apt-key add - && \
-    apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main" && \
+    install -m 0755 -d /etc/apt/keyrings && \
+    curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /etc/apt/keyrings/hashicorp.gpg && \
+    chmod a+r /etc/apt/keyrings/hashicorp.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/hashicorp.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list > /dev/null && \
     apt-get update && apt-get install -y --no-install-recommends terraform
 
 # Fetch latest doctl version
@@ -68,10 +70,19 @@ RUN retry() { \
 # Runtime stage: minimal image with only needed binaries and libs
 FROM ubuntu:24.04 as runtime_stage
 
+# --- New: Define ARGs for user configuration ---
+ARG USERNAME
+ARG PUID
+ARG PGID
 ARG USER_PASSWORD_FILE
-ENV USER_PASSWORD_FILE=${USER_PASSWORD_FILE:-/run/secrets/user_password}
 
+ENV USERNAME=${USERNAME:vscode}
+ENV PUID=${PUID:1000}
+ENV PGID=${PGID:1000}
+ENV USER_PASSWORD_FILE=${USER_PASSWORD_FILE:-/run/secrets/user_password}
 ENV DEBIAN_FRONTEND=noninteractive
+
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 # Install runtime dependencies only and clean up
 RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
@@ -92,19 +103,16 @@ RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
     chmod +x /usr/local/bin/doctl /usr/bin/terraform /opt/code-insiders /entrypoint.sh && \
     chown -R root:root /opt/code-insiders /entrypoint.sh
 
-# Add user and permissions setup as before
+# --- New: Modify the default 'ubuntu' user ---
+# Rename the user and group, set UID/GID, and move the home directory
 RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
-    useradd -ms /bin/zsh vscode && \
-    usermod -aG sudo vscode && \
-    groupmod -n vscode vscode && \
-    usermod -g users vscode && \
-    usermod -d /home/vscode -m vscode && \
-    chown -R vscode:vscode /home/vscode && \
-    echo "vscode:vscode" | chpasswd
+    groupmod -n ${USERNAME} -g ${PGID} ubuntu && \
+    usermod -l ${USERNAME} -u ${PUID} -d /home/${USERNAME} -m ubuntu && \
+    usermod -aG sudo ${USERNAME} && \
+    echo "${USERNAME}:${USERNAME}" | chpasswd
 
-USER vscode
-
-WORKDIR /home/vscode
+USER ${USERNAME}
+WORKDIR /home/${USERNAME}
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -f http://localhost:8000/health || exit 1
