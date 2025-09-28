@@ -99,7 +99,7 @@ RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
     groupmod -n vscode vscode && \
     usermod -g users vscode && \
     usermod -d /home/vscode -m vscode && \
-    chown -R vscode:vscode /home/vscode
+    chown -R vscode:vscode /home/vscode && \
     echo "vscode:vscode" | chpasswd
 
 USER vscode
