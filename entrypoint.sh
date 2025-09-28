@@ -1,7 +1,21 @@
 #!/bin/bash
-# Set password directly from file if specified
-[[ -n "$USER_PASSWORD_FILE" && -f "$USER_PASSWORD_FILE" ]] || { echo "Error: Password file $USER_PASSWORD_FILE not found"; exit 1; }
-echo "vscode:$(cat $USER_PASSWORD_FILE | openssl passwd -1 -stdin)" | chpasswd -e
+set -e
+
+# Change the password if the password file exists
+if [[ -n "$USER_PASSWORD_FILE" && -f "$USER_PASSWORD_FILE" ]]; then
+  NEWPW=$(cat "$USER_PASSWORD_FILE")
+  expect -c "
+    set timeout 10
+    spawn passwd
+    expect \"Current password:\"
+    send \"vscode\r\"
+    expect \"New password:\"
+    send \"$NEWPW\r\"
+    expect \"Retype new password:\"
+    send \"$NEWPW\r\"
+    expect eof
+  "
+fi
 
 exec su vscode -c '/opt/code \
     serve-web \
