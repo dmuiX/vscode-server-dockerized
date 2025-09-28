@@ -87,7 +87,7 @@ SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 # Install runtime dependencies only and clean up
 RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
     apt-get update && apt-get upgrade -y --no-install-recommends && apt-get install -y --no-install-recommends \
-    ca-certificates curl zsh vim sudo bat inetutils-ping dnsutils ncat nmap && \
+    ca-certificates curl zsh vim sudo bat inetutils-ping dnsutils ncat nmap expect && \
     apt-get clean && \
     apt-get autoclean && \
     apt-get autoremove --purge -y && \
