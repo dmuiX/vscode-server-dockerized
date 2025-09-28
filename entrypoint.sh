@@ -2,50 +2,60 @@
 set -euo pipefail
 if [ "${DEBUG}" = "true" ]; then set -x; fi
 
-# Default to "vscode" if USERNAME is not set
+# 1. Set default values
 USERNAME=${USERNAME:-vscode}
-
-# Default to 1000 if PUID/PGID are not set
 PUID=${PUID:-1000}
 PGID=${PGID:-1000}
 
-# Check if the 'ubuntu' user exists before trying to modify it
-if id ubuntu &>/dev/null; then
-    # Modify the user and group IDs if they are different
-    if [ "$(id -u ubuntu)" -ne "${PUID}" ] || [ "$(id -g ubuntu)" -ne "${PGID}" ]; then
-        echo "Changing UID/GID of user 'ubuntu' to ${PUID}/${PGID}"
-        groupmod -o -g "${PGID}" ubuntu
-        usermod -o -u "${PUID}" ubuntu
-    fi
+# 2. Resolve Group ID conflicts and set the group
+# Find the name of the group that currently owns the target GID, if any
+EXISTING_GROUP_NAME=$(getent group "${PGID}" | cut -d: -f1 || true)
 
-    # Rename user and home directory if the target username is different
-    if [ "${USERNAME}" != "ubuntu" ]; then
-        echo "Renaming user 'ubuntu' to '${USERNAME}'"
-        usermod -l "${USERNAME}" -d "/home/${USERNAME}" -m ubuntu
-        groupmod -n "${USERNAME}" ubuntu
-    fi
-else
-    # If the 'ubuntu' user does NOT exist, create the desired user from scratch
-    echo "User 'ubuntu' not found. Creating user '${USERNAME}' with UID/GID ${PUID}/${PGID}."
+if [[ -n "${EXISTING_GROUP_NAME}" && "${EXISTING_GROUP_NAME}" != "${USERNAME}" ]]; then
+    # If GID is taken by a different group, rename that group to the target username
+    echo "GID ${PGID} is taken by group '${EXISTING_GROUP_NAME}'. Renaming it to '${USERNAME}'."
+    groupmod -n "${USERNAME}" "${EXISTING_GROUP_NAME}"
+elif [[ -z "${EXISTING_GROUP_NAME}" ]]; then
+    # If GID is free, create the new group
+    echo "GID ${PGID} is free. Creating group '${USERNAME}'."
     groupadd -g "${PGID}" "${USERNAME}"
-    useradd -u "${PUID}" -g "${PGID}" -m -s /bin/bash "${USERNAME}"
 fi
 
-# Change password if the file exists
+# 3. Resolve User ID conflicts and set the user
+# Find the name of the user that currently owns the target UID, if any
+EXISTING_USER_NAME=$(getent passwd "${PUID}" | cut -d: -f1 || true)
+
+if [[ -n "${EXISTING_USER_NAME}" && "${EXISTING_USER_NAME}" != "${USERNAME}" ]]; then
+    # If UID is taken by a different user, rename that user and move their home directory
+    echo "UID ${PUID} is taken by user '${EXISTING_USER_NAME}'. Renaming them to '${USERNAME}'."
+    usermod -l "${USERNAME}" -d "/home/${USERNAME}" -m "${EXISTING_USER_NAME}"
+elif [[ -z "${EXISTING_USER_NAME}" ]]; then
+    # If UID is free, create the new user
+    echo "UID ${PUID} is free. Creating user '${USERNAME}'."
+    useradd --shell /bin/bash --uid "${PUID}" --gid "${PGID}" --create-home "${USERNAME}"
+fi
+
+# 4. Final state enforcement
+# Ensure the user has the correct primary group, just in case
+usermod -g "${PGID}" "${USERNAME}"
+# Add user to the sudo group to grant administrative privileges if needed
+usermod -aG sudo "${USERNAME}"
+
+
+# 5. Set password if a secret file is provided
 if [[ -n "${USER_PASSWORD_FILE:-}" && -f "${USER_PASSWORD_FILE}" ]]; then
   NEWPW=$(cat "${USER_PASSWORD_FILE}")
   echo "${USERNAME}:${NEWPW}" | chpasswd
 fi
 
+# 6. Log final state and execute main application
 echo "
-User: $(id -u "${USERNAME}")
+Container starting with:
+User:  $(id -u "${USERNAME}") (${USERNAME})
 Group: $(id -g "${USERNAME}")
-Home: /home/${USERNAME}
+Home:  /home/${USERNAME}
 "
 
-# Drop privileges and execute the main application.
-# `gosu` is a lightweight tool perfect for this. It's like `su` but handles signals properly.
-# Using `exec gosu` replaces the root shell process with the final user process.
 exec gosu "${USERNAME}" /opt/code-insiders \
     serve-web \
     --without-connection-token \
