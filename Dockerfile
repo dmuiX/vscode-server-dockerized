@@ -96,11 +96,13 @@ RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
     chown -R root:root /opt/code-insiders /entrypoint.sh
 
 User root
-WORKDIR / # Will set to / anyways
+# Will set to / anyways with this is explicit !
+WORKDIR / 
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -f http://localhost:8000/health || exit 1
 
-EXPOSE 8000 # Just Information tells the User the Application is using Port 8000
+ # Just Information tells the User the Application is using Port 8000
+EXPOSE 8000
 
 ENTRYPOINT [ "/entrypoint.sh" ]
