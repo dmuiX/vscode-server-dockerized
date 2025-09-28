@@ -1,18 +1,19 @@
 #!/bin/bash
 set -euo pipefail
+if [ "${DEBUG}" = "true" ]; then set -x; fi
 
 # Change password if the file exists. Uses the USERNAME env var.
-if [[ -n "$USER_PASSWORD_FILE" && -f "$USER_PASSWORD_FILE" ]]; then
-  NEWPW=$(cat "$USER_PASSWORD_FILE")
+if [[ -n "${USER_PASSWORD_FILE}" && -f "${USER_PASSWORD_FILE}" ]]; then
+  NEWPW=$(cat "${USER_PASSWORD_FILE}")
   expect -c "
     set timeout 10
     spawn passwd
     expect \"Current password:\"
     send \"${USERNAME}\r\"
     expect \"New password:\"
-    send \"$NEWPW\r\"
+    send \"${NEWPW}\r\"
     expect \"Retype new password:\"
-    send \"$NEWPW\r\"
+    send \"${NEWPW}\r\"
     expect eof
   "
 fi
