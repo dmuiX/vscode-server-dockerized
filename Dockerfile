@@ -70,16 +70,8 @@ RUN retry() { \
 # Runtime stage: minimal image with only needed binaries and libs
 FROM ubuntu:24.04 as runtime_stage
 
-# --- New: Define ARGs for user configuration ---
-ARG USERNAME
-ARG PUID
-ARG PGID
-ARG USER_PASSWORD_FILE
-
-ENV USERNAME=${USERNAME:vscode}
-ENV PUID=${PUID:1000}
-ENV PGID=${PGID:1000}
-ENV USER_PASSWORD_FILE=${USER_PASSWORD_FILE:-/run/secrets/user_password}
+ARG DEBUG=false
+ENV DEBUG=${DEBUG}
 ENV DEBIAN_FRONTEND=noninteractive
 
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
@@ -87,7 +79,7 @@ SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 # Install runtime dependencies only and clean up
 RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
     apt-get update && apt-get upgrade -y --no-install-recommends && apt-get install -y --no-install-recommends \
-    ca-certificates curl zsh vim sudo bat inetutils-ping dnsutils ncat nmap expect && \
+    ca-certificates curl zsh vim sudo bat inetutils-ping dnsutils ncat nmap gosu && \
     apt-get clean && \
     apt-get autoclean && \
     apt-get autoremove --purge -y && \
@@ -103,20 +95,12 @@ RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
     chmod +x /usr/local/bin/doctl /usr/bin/terraform /opt/code-insiders /entrypoint.sh && \
     chown -R root:root /opt/code-insiders /entrypoint.sh
 
-# --- New: Modify the default 'ubuntu' user ---
-# Rename the user and group, set UID/GID, and move the home directory
-RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
-    groupmod -n ${USERNAME} -g ${PGID} ubuntu && \
-    usermod -l ${USERNAME} -u ${PUID} -d /home/${USERNAME} -m ubuntu && \
-    usermod -aG sudo ${USERNAME} && \
-    echo "${USERNAME}:${USERNAME}" | chpasswd
-
-USER ${USERNAME}
-WORKDIR /home/${USERNAME}
+User root
+WORKDIR / # Will set to / anyways
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -f http://localhost:8000/health || exit 1
 
-EXPOSE 8000
+EXPOSE 8000 # Just Information tells the User the Application is using Port 8000
 
 ENTRYPOINT [ "/entrypoint.sh" ]
