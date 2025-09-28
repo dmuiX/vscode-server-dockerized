@@ -20,7 +20,6 @@ env:
   REGISTRY: ghcr.io
   # github.repository as <account>/<repo>
   IMAGE_NAME: ${{ github.repository }}
-  
 
 jobs:
   build:
@@ -90,35 +89,46 @@ jobs:
           # Adds more output to debug
           platforms: linux/amd64,linux/arm64
           build-args: |
-            USER_PASSWORD_FILE=/run/secrets/user_password
             DEBUG=true
             
       - name: Create password file from secret
         run: echo "secret" > ${{ github.workspace }}/test-password.txt
-        
-      - name: Test built image binaries
-        run: |
-          docker run --rm -v ${{ github.workspace }}/test-password.txt:/run/secrets/user_password:ro \
-            -e USER_PASSWORD_FILE=/run/secrets/user_password ${{ steps.meta.outputs.tags }} doctl version
-          docker run --rm -v ${{ github.workspace }}/test-password.txt:/run/secrets/user_password:ro \
-            -e USER_PASSWORD_FILE=/run/secrets/user_password ${{ steps.meta.outputs.tags }} terraform version
-          docker run --rm -v ${{ github.workspace }}/test-password.txt:/run/secrets/user_password:ro \
-            -e USER_PASSWORD_FILE=/run/secrets/user_password ${{ steps.meta.outputs.tags }} /opt/code-insiders --version
 
-      - name: Inspect Docker manifest
-        run: docker manifest inspect ${{ steps.meta.outputs.tags }}
-
-      - name: Run container and check health
+      - name: Test Container and Binaries
         run: |
           docker run -d --name testcontainer \
             -v ${{ github.workspace }}/test-password.txt:/run/secrets/user_password:ro \
             -e USER_PASSWORD_FILE=/run/secrets/user_password \
+            -e DEBUG=true \
             ${{ steps.meta.outputs.tags }}
-          sleep 10
-          docker inspect --format='{{json .State.Health}}' testcontainer
+          
+          # Give the container time to start up and become healthy
+          echo "Waiting for container to become healthy..."
+          sleep 15
+          
+          # Check health status and fail if not healthy
+          docker inspect --format='{{json .State.Health}}' testcontainer | grep '"Status":"healthy"'
+          
+          echo "Container is healthy. Testing binaries..."
+          # Test binaries inside the running container using docker exec
+          docker exec testcontainer doctl version
+          docker exec testcontainer terraform version
+          docker exec testcontainer /opt/code-insiders --version
+          
+          echo "Tests passed. Final logs:"
+          # Output container logs for debugging
           docker logs testcontainer
+          
+          # Clean up
           docker rm -f testcontainer
-    
+          
+      - name: Inspect and Verify Docker Manifest
+        run: |
+          MANIFEST_JSON=$(docker manifest inspect ${{ steps.meta.outputs.tags }})
+          echo "${MANIFEST_JSON}"
+          echo "${MANIFEST_JSON}" | grep '"architecture": "amd64"'
+          echo "${MANIFEST_JSON}" | grep '"architecture": "arm64"'
+
       # Sign the resulting Docker image digest except on PRs.
       # This will only write to the public Rekor transparency log when the Docker
       # repository is public to avoid leaking data.  If you would like to publish
