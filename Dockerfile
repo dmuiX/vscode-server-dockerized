@@ -70,6 +70,7 @@ FROM ubuntu:24.04 as runtime_stage
 
 ARG USER_PASSWORD_FILE
 ENV USER_PASSWORD_FILE=${USER_PASSWORD_FILE:-/run/secrets/user_password}
+ENV 
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -100,6 +101,7 @@ RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
     usermod -g users vscode && \
     usermod -d /home/vscode -m vscode && \
     chown -R vscode:vscode /home/vscode
+    echo "vscode:vscode" | chpasswd
 
 USER vscode
 
