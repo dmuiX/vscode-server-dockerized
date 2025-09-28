@@ -70,7 +70,6 @@ FROM ubuntu:24.04 as runtime_stage
 
 ARG USER_PASSWORD_FILE
 ENV USER_PASSWORD_FILE=${USER_PASSWORD_FILE:-/run/secrets/user_password}
-ENV 
 
 ENV DEBIAN_FRONTEND=noninteractive
 
