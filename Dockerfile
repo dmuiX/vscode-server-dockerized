@@ -100,7 +100,7 @@ User root
 WORKDIR / 
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:8000/health || exit 1
+  CMD curl -f http://localhost:8000 || exit 1
 
  # Just Information tells the User the Application is using Port 8000
 EXPOSE 8000
