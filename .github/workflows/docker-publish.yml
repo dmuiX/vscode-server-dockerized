@@ -78,17 +78,11 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            # For main branch, produce 'latest'
-            type=ref,ref=refs/heads/main,format=latest
-            # For other branches, produce branch-<name>
-            type=ref,ref=refs/heads/*,format=branch-{{ref_name}}
-            # For semver tags (vX.Y.Z) produce full version, major.minor, major
+            type=ref,event=branch,ref=refs/heads/main,format=latest
+            type=ref,event=branch,ref=refs/heads/*,format=branch-{{ref_name}}
             type=semver,pattern=v*.*.*,format={{version}}
             type=semver,pattern=v*.*.*,format={{major}}.{{minor}}
             type=semver,pattern=v*.*.*,format={{major}}
-            # Optionally make semver releases also update 'latest'
-            type=semver,pattern=v*.*.*,format=latest
-            # Always have a fallback short-sha tag
             type=sha,format={{short_sha}}
 
       # Build and push Docker image with Buildx (don't push on PR)
