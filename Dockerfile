@@ -1,83 +1,98 @@
-FROM ubuntu:24.04
+# Builder stage: install dependencies, fetch binaries, prepare artifacts
+FROM ubuntu:24.04 AS builder
+
+ARG DEBUG=false
+ENV DEBUG=${DEBUG}
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
+    apt-get update && apt-get install -y --no-install-recommends \
+    curl jq wget tar ca-certificates gnupg2 software-properties-common \
+    lsb-release apt-transport-https
+
+# Install Terraform repo and terraform binary
+RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
+    curl -fsSL https://apt.releases.hashicorp.com/gpg | apt-key add - && \
+    apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main" && \
+    apt-get update && apt-get install -y terraform
+
+# Fetch latest doctl version
+RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
+    DOCTL_VERSION=$(curl -s https://api.github.com/repos/digitalocean/doctl/releases/latest | jq -r '.tag_name' | sed 's/^v//') && \
+    echo "Installing doctl version $DOCTL_VERSION" && \
+    curl -L https://github.com/digitalocean/doctl/releases/download/v${DOCTL_VERSION}/doctl-${DOCTL_VERSION}-linux-amd64.tar.gz | tar -xzC /usr/local/bin && \
+    chmod +x /usr/local/bin/doctl
+
+# Setup VSCode Insiders
+RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
+    ARCH=$(dpkg --print-architecture) && \
+    case "$ARCH" in \
+      amd64) TARGET_API='linux-x64' ; TARGET_DL='cli-linux-x64' ;; \
+      arm64) TARGET_API='linux-arm64' ; TARGET_DL='cli-linux-arm64' ;; \
+      *) echo "Unsupported architecture: $ARCH" && exit 1 ;; \
+    esac && \
+    echo "Detected architecture: $ARCH" && \
+    COMMIT_HASH=$(wget -qO- https://update.code.visualstudio.com/api/commits/insider/${TARGET_API} | jq -r '.[0]') && \
+    echo "Fetching VSCode Insiders commit $COMMIT_HASH" && \
+    wget -qO- https://update.code.visualstudio.com/commit:$COMMIT_HASH/${TARGET_DL}/insider | tar xvz -C /opt && \
+    chmod +x /opt/code /entrypoint.sh
+
+# -------------------------------------------------------------------------
+# Commented out stable VSCode install code for reference:
+# 
+# RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
+#     CODE_VERSION="latest" && \
+#     ARCH=$(dpkg --print-architecture) && \
+#     echo "ARCH: $ARCH" && \
+#     case "$ARCH" in \
+#       amd64) TARGET='cli-linux-x64' ;; \
+#       arm64) TARGET='cli-linux-arm64' ;; \
+#     esac && \
+#     wget -qO- https://update.code.visualstudio.com/${CODE_VERSION}/${TARGET}/stable | tar xvz -C /opt && \
+#     chmod -x /opt/code /entrypoint.sh && \
+#     chown -R root:root /opt/code /entrypoint.sh
+# -------------------------------------------------------------------------
+
+# Runtime stage: minimal image with only needed binaries and libs
+FROM ubuntu:24.04 as runtime_stage
 
 ARG USER_PASSWORD_FILE
 ENV USER_PASSWORD_FILE=${USER_PASSWORD_FILE:-/run/secrets/user_password}
 
-COPY entrypoint.sh /
+ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && \
-    export DEBIAN_FRONTEND=noninteractive && \
-    apt-get upgrade -y && \
-    
-    # tools & required packages
-    apt-get install -y --no-install-recommends git curl wget ca-certificates gnupg2 software-properties-common \ 
-    inetutils-ping dnsutils ncat nmap zsh vim vim-airline vim-airline-themes vim-lastplace sudo bat && \
-    
-    # terraform
-    curl -fsSL https://apt.releases.hashicorp.com/gpg | apt-key add - && \
-    apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main" && \
-    apt-get update && apt-get install terraform && \
+# Install runtime dependencies only
+RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
+    apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl zsh vim sudo bat inetutils-ping dnsutils ncat nmap && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
-    # digitalocean-cli
-    DOCTL_VERSION="1.123.0" && \
-    curl -L https://github.com/digitalocean/doctl/releases/download/v${DOCTL_VERSION}/doctl-${DOCTL_VERSION}-linux-amd64.tar.gz | tar -xzC /usr/local/bin && \
-    chmod +x /usr/local/bin/doctl && \
-    doctl version && \
+# Copy binaries and VSCode code folder from builder stage
+COPY --from=builder /usr/local/bin/doctl /usr/local/bin/doctl
+COPY --from=builder /usr/bin/terraform /usr/bin/terraform
+COPY --from=builder /opt/code /opt/code
+COPY --from=builder /entrypoint.sh /entrypoint.sh
 
-    # clean up
-    apt-get autoremove --purge -y && apt-get autoclean -y && apt-get clean -y && rm -rf /var/lib/apt/lists/* && \
-    
-    # install visual studio code and set some permissions
-    CODE_VERSION="1.98.1" && \
-    ARCH="$(dpkg --print-architecture)" && \
-    echo "ARCH: $ARCH" && \
-    case "$ARCH" in \
-      amd64) export TARGET='cli-linux-x64' ;; \
-      arm64) export TARGET='cli-linux-arm64' ;; \
-    esac && \
-    wget -qO- https://update.code.visualstudio.com/${CODE_VERSION}/${TARGET}/stable | tar xvz -C /opt && \
-    chmod +x /opt/code /entrypoint.sh && \
-    chown -R ubuntu: /opt/code /entrypoint.sh && \
+RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
+    chmod +x /usr/local/bin/doctl /usr/bin/terraform /opt/code /entrypoint.sh && \
+    chown -R root:root /opt/code /entrypoint.sh
 
-    # add user and change the home directory to this user
-    touch /home/ubuntu/.zshrc && \
-    chown ubuntu:ubuntu /home/ubuntu/.zshrc && \
-    chsh -s /usr/bin/zsh ubuntu && \
-    
-    usermod -aG sudo ubuntu && \
-    groupmod -n vscode ubuntu && \
-    usermod -l vscode ubuntu && \
+# Add user and permissions setup as before
+RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
+    useradd -ms /bin/zsh vscode && \
+    usermod -aG sudo vscode && \
+    groupmod -n vscode vscode && \
     usermod -g users vscode && \
-    usermod -d /home/vscode -m vscode
-    
-# until here everything runs as root! therefore also every file created belongs to root until here if not changed!
+    usermod -d /home/vscode -m vscode && \
+    chown -R vscode:vscode /home/vscode
 
 USER vscode
 
-    # install atuin
-RUN curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh && \
-
-    # install oh-my-zsh and plugins
-    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended && \
-    git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting && \
-    git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions && \
-    git clone https://github.com/zsh-users/zsh-completions ${ZSH_CUSTOM:-${ZSH:-~/.oh-my-zsh}/custom}/plugins/zsh-completions && \
-    git clone https://github.com/thuandt/zsh-pipx.git ${ZSH_CUSTOM:-${ZSH:-~/.oh-my-zsh}/custom}/plugins/pipx && \
-    git clone https://github.com/MichaelAquilina/zsh-autoswitch-virtualenv.git ${ZSH_CUSTOM:-${ZSH:-~/.oh-my-zsh}/custom}/plugins/autoswitch_virtualenv && \
-    git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/themes/powerlevel10k && \
-    curl -fsSL -o /home/vscode/.vimrc https://raw.githubusercontent.com/dmuiX/dotnet-files-linux/refs/heads/main/.vimrc && \
-    curl -fsSL -o /home/vscode/.zshrc https://raw.githubusercontent.com/dmuiX/dotnet-files-linux/refs/heads/main/.zshrc && \
-    curl -fsSL -o /home/vscode/.p10k https://raw.githubusercontent.com/dmuiX/dotnet-files-linux/refs/heads/main/.p10k
-
-USER root
-
-# Set working directory
 WORKDIR /home/vscode
 
-# entrypoint ~/ not working! and also /home/vscode/ not working
-ENTRYPOINT [ "/entrypoint.sh" ]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:8000/health || exit 1
 
-HEALTHCHECK NONE
-
-# expose port
 EXPOSE 8000
+
+ENTRYPOINT [ "/entrypoint.sh" ]
