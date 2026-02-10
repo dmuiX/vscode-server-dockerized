@@ -4,12 +4,12 @@ VS Code Server (Insiders) in a minimal Ubuntu image with Terraform included.
 The container runs `code-insiders serve-web` on port `8000`.
 
 ## Features
-- VS Code Insiders server (web)
-- Terraform preinstalled
-- Non-root runtime with configurable UID/GID
-- Simple, no-build-step image (plain Dockerfile)
+- ✅ VS Code Insiders server (web)
+- ✅ Terraform preinstalled
+- ✅ Non-root runtime with configurable UID/GID
+- ✅ Simple, no-build-step image (plain Dockerfile)
 
-## Quick Start
+## Quick Start 🚀
 Build locally:
 ```bash
 docker build -t vscode-server-dockerized .
@@ -30,7 +30,7 @@ Then open:
 http://localhost:8000
 ```
 
-## Configuration
+## Configuration ⚙️
 Environment variables:
 - `USERNAME` (default: `vscode`)
 - `PUID` (default: `1000`)
@@ -38,7 +38,7 @@ Environment variables:
 - `USER_PASSWORD_FILE` (optional): Path to a file inside the container containing the user password
 - `DEBUG` (default: `false`): Enables shell debug output in Dockerfile and entrypoint
 
-## Volumes
+## Volumes 📦
 Recommended:
 - `/home/<USERNAME>` for user data (extensions, settings, etc.)
 
@@ -50,17 +50,17 @@ docker run --rm -p 8000:8000 \
   vscode-server-dockerized
 ```
 
-## Security Notes
-The server is started with `--without-connection-token`, which means **no built-in auth**.
+## Security Notes 🔒
+⚠️ The server is started with `--without-connection-token`, which means **no built-in auth**.
 Only expose this service behind a trusted reverse proxy or in a private network.
 
-The image is scanned for CVEs in the upstream workflow. Findings are reported for visibility only and do not fail the build.
+🛡️ The image is scanned for CVEs in the upstream workflow. Findings are reported for visibility only and do not fail the build.
 
-## CI / GHCR
-The Docker publish workflow builds and pushes the image to GHCR.
-After a successful publish, a cleanup workflow removes old versions while keeping the most recent images and their SBOM/provenance artifacts.
+## CI / GHCR 🛠️
+📦 The Docker publish workflow builds and pushes the image to GHCR.
+🧹 After a successful publish, a cleanup workflow removes old versions while keeping the most recent images and their SBOM/provenance artifacts.
 
-## Project Instructions (Codex/Copilot)
+## Project Instructions (Codex/Copilot) 🤖
 This repo includes guidance for automated assistants:
-- `AGENTS.md` is used by Codex for contribution rules and coding conventions.
-- `.github/copilot-instructions.md` is used by GitHub Copilot for editing guidance.
+- 📘 `AGENTS.md` is used by Codex for contribution rules and coding conventions.
+- 🧭 `.github/copilot-instructions.md` is used by GitHub Copilot for editing guidance.
