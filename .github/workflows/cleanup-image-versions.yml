@@ -2,6 +2,11 @@ name: cleanup image versions
 
 on:
   workflow_dispatch:
+    inputs:
+      force:
+        description: 'Run cleanup even if latest digest is unchanged'
+        required: false
+        default: 'true'
   workflow_run:
     workflows: ["Docker"]
     types:
@@ -58,6 +63,12 @@ jobs:
       - name: Compare digest cache
         id: compare
         run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "Manual run -> forcing cleanup"
+            echo "changed=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
           if [[ -f digest.txt ]]; then
             OLD=$(cat digest.txt)
           else
