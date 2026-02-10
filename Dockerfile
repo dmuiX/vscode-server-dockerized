@@ -10,21 +10,20 @@ SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 RUN if [ "$DEBUG" = "true" ]; then set -x ; fi && \
     apt-get update && apt-get install -y --no-install-recommends \
     curl jq wget tar ca-certificates gnupg2 software-properties-common \
-    lsb-release apt-transport-https
+    lsb-release apt-transport-https unzip && \
+    apt-get clean && \
+    apt-get autoclean && \
+    apt-get autoremove --purge -y && \
+    rm -rf /var/lib/apt/lists/*
 
-# Install Terraform repo and terraform binary
+# Install Terraform (fetch latest version dynamically)
 RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
-    install -m 0755 -d /etc/apt/keyrings && \
-    curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /etc/apt/keyrings/hashicorp.gpg && \
-    chmod a+r /etc/apt/keyrings/hashicorp.gpg && \
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/hashicorp.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list > /dev/null && \
-    apt-get update && apt-get install -y --no-install-recommends terraform
-
-# Fetch latest doctl version
-RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
-    DOCTL_VERSION=$(curl -fsSL https://api.github.com/repos/digitalocean/doctl/releases/latest | jq -r '.tag_name' | sed 's/^v//') && \
-    echo "Installing doctl version \"$DOCTL_VERSION\"" && \
-    curl -fsSL "https://github.com/digitalocean/doctl/releases/download/v${DOCTL_VERSION}/doctl-${DOCTL_VERSION}-linux-amd64.tar.gz" | tar -xzC /usr/local/bin
+    TERRAFORM_VERSION=$(curl -sSL https://api.github.com/repos/hashicorp/terraform/releases/latest | jq -r '.tag_name' | sed 's/^v//') && \
+    ARCH=$(dpkg --print-architecture) && \
+    curl -fsSL "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_${ARCH}.zip" -o /tmp/terraform.zip && \
+    unzip /tmp/terraform.zip -d /usr/local/bin && \
+    rm /tmp/terraform.zip && \
+    chmod +x /usr/local/bin/terraform
 
 # Setup VSCode Insiders
 RUN retry() { \
@@ -68,7 +67,12 @@ RUN retry() { \
 # -------------------------------------------------------------------------
 
 # Runtime stage: minimal image with only needed binaries and libs
-FROM ubuntu:24.04 as runtime_stage
+FROM ubuntu:24.04 AS runtime_stage
+
+LABEL org.opencontainers.image.title="VSCode Server Dockerized" \
+      org.opencontainers.image.description="VSCode Insiders server with Terraform" \
+      org.opencontainers.image.source="https://github.com/${GITHUB_REPOSITORY}" \
+      org.opencontainers.image.licenses="MIT"
 
 ARG DEBUG=false
 ENV DEBUG=${DEBUG}
@@ -86,16 +90,15 @@ RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
     rm -rf /var/lib/apt/lists/* /usr/share/doc/* /usr/share/man/* /usr/share/locales/*
 
 # Copy binaries and VSCode code folder from builder stage
-COPY --from=builder /usr/local/bin/doctl /usr/local/bin/doctl
-COPY --from=builder /usr/bin/terraform /usr/bin/terraform
+COPY --from=builder /usr/local/bin/terraform /usr/local/bin/terraform
 COPY --from=builder /opt/code-insiders /opt/code-insiders
 COPY entrypoint.sh /entrypoint.sh
 
 RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
-    chmod +x /usr/local/bin/doctl /usr/bin/terraform /opt/code-insiders /entrypoint.sh && \
+    chmod +x /usr/local/bin/terraform /opt/code-insiders /entrypoint.sh && \
     chown -R root:root /opt/code-insiders /entrypoint.sh
 
-User root
+USER root
 # Will set to / anyways with this is explicit !
 WORKDIR / 
 
