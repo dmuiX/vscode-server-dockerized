@@ -154,7 +154,11 @@ jobs:
             echo "$ALL_VERSIONS" |
             jq --argjson imageTypes "$IMAGE_MEDIA_TYPES" '
               [ .[]
-                | select(.metadata.container.manifest.mediaType as $mt | $imageTypes | index($mt))
+                | select(
+                    (.metadata.container.manifest.mediaType as $mt | $imageTypes | index($mt))
+                    or
+                    (.metadata.container.tags | type == "array" and length > 0)
+                  )
               ]
               | sort_by(.created_at)
             '
