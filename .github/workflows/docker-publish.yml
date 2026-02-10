@@ -125,11 +125,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-            type=raw,value=${{ needs.check-upstream.outputs.version }},enable=${{ needs.check-upstream.outputs.version != '' }}
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=sha,format={{short_sha}}
+            type=raw,value=latest
 
       # BUILD 1: TEST (Load)
       - name: Build and Load (Test)
