@@ -41,14 +41,24 @@ jobs:
           OWNER_TYPE=$(gh api /users/$OWNER --jq '.type')
           [[ "$OWNER_TYPE" == "Organization" ]] && API_BASE="/orgs/$OWNER"
 
-          DIGEST=$(gh api \
-            "$API_BASE/packages/container/$PACKAGE_NAME/versions" \
-            --jq '
+          DIGEST=$(
+            gh api --paginate \
+              -H "Accept: application/vnd.github+json" \
+              "$API_BASE/packages/container/$PACKAGE_NAME/versions" |
+            jq -s 'add' |
+            jq -r '
               [.[] | select(.metadata.container.tags | index("latest"))]
               | sort_by(.created_at)
               | last
-              | .name
-            ')
+              | .name // empty
+            '
+          )
+
+          if [[ -z "$DIGEST" ]]; then
+            echo "No latest tag found for digest cache."
+            echo "digest=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
 
           echo "digest=$DIGEST" >> $GITHUB_OUTPUT
 
@@ -63,7 +73,7 @@ jobs:
       - name: Compare digest cache
         id: compare
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.force }}" == "true" ]]; then
             echo "Manual run -> forcing cleanup"
             echo "changed=true" >> $GITHUB_OUTPUT
             exit 0
@@ -78,7 +88,10 @@ jobs:
           echo "Old: $OLD"
           echo "New: ${{ steps.digest.outputs.digest }}"
 
-          if [[ "$OLD" == "${{ steps.digest.outputs.digest }}" ]]; then
+          if [[ -z "${{ steps.digest.outputs.digest }}" ]]; then
+            echo "No digest found -> skipping cleanup."
+            echo "changed=false" >> $GITHUB_OUTPUT
+          elif [[ "$OLD" == "${{ steps.digest.outputs.digest }}" ]]; then
             echo "changed=false" >> $GITHUB_OUTPUT
           else
             echo "${{ steps.digest.outputs.digest }}" > digest.txt
@@ -114,7 +127,8 @@ jobs:
           ALL_VERSIONS=$(
             gh api --paginate \
               -H "Accept: application/vnd.github+json" \
-              "$API_BASE/packages/container/$PACKAGE_NAME/versions"
+              "$API_BASE/packages/container/$PACKAGE_NAME/versions" |
+            jq -s 'add'
           )
 
           COUNT=$(echo "$ALL_VERSIONS" | jq 'length')
