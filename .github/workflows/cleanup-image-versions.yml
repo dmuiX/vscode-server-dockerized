@@ -1,0 +1,262 @@
+name: Cleanup Old GHCR Images
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * 0"
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+
+    env:
+      PACKAGE_NAME: vscode-server-dockerized
+
+    steps:
+      - name: Install gh + jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gh jq
+
+      - name: Check latest digest
+        id: digest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+
+          API_BASE="/users/$OWNER"
+          OWNER_TYPE=$(gh api /users/$OWNER --jq '.type')
+          [[ "$OWNER_TYPE" == "Organization" ]] && API_BASE="/orgs/$OWNER"
+
+          DIGEST=$(gh api \
+            "$API_BASE/packages/container/$PACKAGE_NAME/versions" \
+            --jq '
+              [.[] | select(.metadata.container.tags | index("latest"))]
+              | sort_by(.created_at)
+              | last
+              | .name
+            ')
+
+          echo "digest=$DIGEST" >> $GITHUB_OUTPUT
+
+      - name: Restore digest cache
+        uses: actions/cache@v4
+        with:
+          path: digest.txt
+          key: digest-${{ github.repository }}-${{ steps.digest.outputs.digest }}
+          restore-keys: |
+            digest-${{ github.repository }}-
+
+      - name: Compare digest cache
+        id: compare
+        run: |
+          if [[ -f digest.txt ]]; then
+            OLD=$(cat digest.txt)
+          else
+            OLD=""
+          fi
+
+          echo "Old: $OLD"
+          echo "New: ${{ steps.digest.outputs.digest }}"
+
+          if [[ "$OLD" == "${{ steps.digest.outputs.digest }}" ]]; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "${{ steps.digest.outputs.digest }}" > digest.txt
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Cleanup GHCR
+        if: steps.compare.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          echo "New latest detected -> cleanup"
+          set -euo pipefail
+
+          ########################################
+          # Detect owner type
+          ########################################
+          OWNER_TYPE=$(gh api /users/$OWNER --jq '.type')
+
+          if [[ "$OWNER_TYPE" == "Organization" ]]; then
+            API_BASE="/orgs/$OWNER"
+          else
+            API_BASE="/users/$OWNER"
+          fi
+
+          echo "Owner: $OWNER ($OWNER_TYPE)"
+          echo "Package: $PACKAGE_NAME"
+
+          ########################################
+          # Fetch ALL versions (no pagination limit)
+          ########################################
+          ALL_VERSIONS=$(
+            gh api --paginate \
+              -H "Accept: application/vnd.github+json" \
+              "$API_BASE/packages/container/$PACKAGE_NAME/versions"
+          )
+
+          COUNT=$(echo "$ALL_VERSIONS" | jq 'length')
+          echo "Found $COUNT versions"
+
+          if [[ "$COUNT" -eq 0 ]]; then
+            echo "Nothing to delete."
+            exit 0
+          fi
+
+          ########################################
+          # Debug overview
+          ########################################
+          echo "Versions overview:"
+          echo "$ALL_VERSIONS" | jq '.[] | {id, tags:.metadata.container.tags}'
+
+          ########################################
+          # Identify newest latest-tag
+          ########################################
+          LATEST_ID=$(
+            echo "$ALL_VERSIONS" |
+            jq '
+              [.[] | select(.metadata.container.tags | index("latest"))]
+              | sort_by(.created_at)
+              | last
+              | .id // empty
+            '
+          )
+
+          if [[ -z "$LATEST_ID" ]]; then
+            echo "No latest tag found -> aborting."
+            exit 1
+          fi
+
+          echo "Keeping version ID: $LATEST_ID"
+
+          ########################################
+          # Keep last 3 image versions
+          ########################################
+          IMAGE_MEDIA_TYPES='[
+            "application/vnd.oci.image.manifest.v1+json",
+            "application/vnd.docker.distribution.manifest.v2+json",
+            "application/vnd.oci.image.index.v1+json",
+            "application/vnd.docker.distribution.manifest.list.v2+json"
+          ]'
+
+          IMAGE_VERSIONS=$(
+            echo "$ALL_VERSIONS" |
+            jq --argjson imageTypes "$IMAGE_MEDIA_TYPES" '
+              [ .[]
+                | select(.metadata.container.manifest.mediaType as $mt | $imageTypes | index($mt))
+              ]
+              | sort_by(.created_at)
+            '
+          )
+
+          IMAGE_COUNT=$(echo "$IMAGE_VERSIONS" | jq 'length')
+          echo "Image versions: $IMAGE_COUNT"
+
+          if [[ "$IMAGE_COUNT" -eq 0 ]]; then
+            echo "No image versions found -> aborting."
+            exit 1
+          fi
+
+          KEEP_IMAGE_IDS=$(
+            echo "$IMAGE_VERSIONS" | jq -r '.[-3:][]?.id'
+          )
+
+          KEEP_IMAGE_DIGESTS_JSON=$(
+            echo "$IMAGE_VERSIONS" |
+            jq -c '
+              .[-3:]
+              | map(.metadata.container.digest // .metadata.container.manifest.digest // .name)
+              | map(select(. != null))
+            '
+          )
+
+          CUTOFF_CREATED_AT=$(
+            echo "$IMAGE_VERSIONS" | jq -r '.[-3].created_at // empty'
+          )
+
+          ########################################
+          # Keep SBOM/Provenance for last 3 images
+          ########################################
+          KEEP_ARTIFACT_IDS_BY_SUBJECT=$(
+            echo "$ALL_VERSIONS" |
+            jq -r --argjson keepDigests "$KEEP_IMAGE_DIGESTS_JSON" '
+              .[]
+              | select(.metadata.container.subject.digest? and ($keepDigests | index(.metadata.container.subject.digest)))
+              | .id
+            '
+          )
+
+          if [[ -n "$CUTOFF_CREATED_AT" ]]; then
+            KEEP_ARTIFACT_IDS_BY_DATE=$(
+              echo "$ALL_VERSIONS" |
+              jq -r --arg cutoff "$CUTOFF_CREATED_AT" '
+                .[]
+                | select((.metadata.container.subject.digest? | not) and (.created_at >= $cutoff))
+                | .id
+              '
+            )
+          else
+            KEEP_ARTIFACT_IDS_BY_DATE=""
+          fi
+
+          KEEP_IDS_JSON=$(
+            {
+              echo "$KEEP_IMAGE_IDS"
+              echo "$KEEP_ARTIFACT_IDS_BY_SUBJECT"
+              echo "$KEEP_ARTIFACT_IDS_BY_DATE"
+            } | jq -R . | jq -s 'map(select(length > 0)) | unique'
+          )
+
+          ########################################
+          # Delete everything else
+          ########################################
+          IDS_TO_DELETE=$(
+            echo "$ALL_VERSIONS" |
+            jq -r --argjson keepIds "$KEEP_IDS_JSON" '
+              .[]
+              | select(($keepIds | index(.id)) | not)
+              | .id
+            '
+          )
+
+          ########################################
+          # Robust delete function
+          ########################################
+          delete_version() {
+            local id="$1"
+
+            for i in {1..4}; do
+              echo "Deleting version $id (attempt $i)..."
+
+              if gh api \
+                --method DELETE \
+                -H "Accept: application/vnd.github+json" \
+                "$API_BASE/packages/container/$PACKAGE_NAME/versions/$id"
+              then
+                echo "Deleted $id"
+                return 0
+              fi
+
+              sleep 4
+            done
+
+            echo "FAILED deleting $id"
+            return 1
+          }
+
+          ########################################
+          # Execute cleanup
+          ########################################
+          for id in $IDS_TO_DELETE; do
+            delete_version "$id"
+          done
+
+          echo "Cleanup completed."
