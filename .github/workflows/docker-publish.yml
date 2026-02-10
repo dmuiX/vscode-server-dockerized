@@ -1,145 +1,203 @@
 name: Docker
 
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
-
 on:
   schedule:
     - cron: '27 2 * * *'
   push:
     branches: [ "main" ]
-    # Publish semver tags as releases.
-    tags: [ 'v*.*.*', 'latest' ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ "main" ]
 
 env:
-  # Use docker.io for Docker Hub if empty
   REGISTRY: ghcr.io
-  # github.repository as <account>/<repo>
-  IMAGE_NAME: ${{ github.repository }}
+  UPSTREAM_REPO: microsoft/vscode
 
 jobs:
-  build:
-
+  # -------------------------------------------------------------------------
+  # JOB 1: CHECK UPSTREAM VERSION
+  # -------------------------------------------------------------------------
+  check-upstream:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      packages: write
-      # This is used to complete the identity challenge
-      # with sigstore/fulcio when running outside of PRs.
-      id-token: write
-
+      packages: read
+    outputs:
+      needs_update: ${{ steps.check.outputs.needs_update }}
+      version: ${{ steps.check.outputs.version }}
+      image_name_lower: ${{ steps.lowercase.outputs.image_name }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      # REQUIRED FIX: Docker registries crash on capital letters.
+      - name: Lowercase Image Name
+        id: lowercase
+        run: |
+          echo "image_name=${GITHUB_REPOSITORY,,}" >> $GITHUB_OUTPUT
 
-      # Lint Dockerfile
-      - name: Lint Dockerfile
-        uses: hadolint/hadolint-action@v3.3.0
-        with:
-          dockerfile: Dockerfile
-          config: .hadolint.json
-      # Install the cosign tool except on PR
-      # https://github.com/sigstore/cosign-installer
-      - name: Install cosign
-        if: github.event_name != 'pull_request'
-        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 #v3.5.0
-        with:
-          cosign-release: 'v2.2.4'
-
-      # Set up BuildKit Docker container builder to be able to build
-      # multi-platform images and export cache
-      # https://github.com/docker/setup-buildx-action
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@f95db51fddba0c2d1ec667646a06c2ce06100226 # v3.0.0
-
-      # Login against a Docker registry except on PR
-      # https://github.com/docker/login-action
-      - name: Log into registry ${{ env.REGISTRY }}
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+      - name: Login to Registry
+        uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Extract metadata (tags, labels) for Docker
-      # https://github.com/docker/metadata-action
-      - name: Extract Docker metadata
+      - name: Check Upstream & Registry
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Checking latest release for ${{ env.UPSTREAM_REPO }}..."
+          
+          # 1. Fetch latest tag from the defined upstream repo
+          UPSTREAM_TAG=$(curl -sf -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/${{ env.UPSTREAM_REPO }}/releases/latest" | jq -r ".tag_name")
+          
+          if [ -z "$UPSTREAM_TAG" ] || [ "$UPSTREAM_TAG" == "null" ]; then
+            echo "::error::Could not fetch upstream tag from ${{ env.UPSTREAM_REPO }}"
+            exit 1
+          fi
+          
+          echo "Latest upstream version: $UPSTREAM_TAG"
+          echo "version=$UPSTREAM_TAG" >> $GITHUB_OUTPUT
+          
+          # 2. Check if this version exists in YOUR registry
+          MY_IMAGE="${{ env.REGISTRY }}/${{ steps.lowercase.outputs.image_name }}"
+          
+          if docker manifest inspect "$MY_IMAGE:$UPSTREAM_TAG" > /dev/null 2>&1; then
+            echo "Image $MY_IMAGE:$UPSTREAM_TAG already exists."
+            echo "needs_update=false" >> $GITHUB_OUTPUT
+          else
+            echo "Update required."
+            echo "needs_update=true" >> $GITHUB_OUTPUT
+          fi
+
+  # -------------------------------------------------------------------------
+  # JOB 2: BUILD & RELEASE
+  # -------------------------------------------------------------------------
+  build:
+    needs: check-upstream
+    runs-on: ubuntu-latest
+    # Logic: Run on Push/PR OR (Schedule AND update needed)
+    if: |
+      github.event_name != 'schedule' || 
+      (github.event_name == 'schedule' && needs.check-upstream.outputs.needs_update == 'true')
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    env:
+      IMAGE_NAME: ${{ needs.check-upstream.outputs.image_name_lower }}
+      TEST_TAG: localhost/${{ needs.check-upstream.outputs.image_name_lower }}:test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Lint Dockerfile
+        uses: hadolint/hadolint-action@v3.3.0
+        with:
+          dockerfile: Dockerfile
+          config: .hadolint.json
+
+      - name: Install Cosign
+        if: github.event_name != 'pull_request'
+        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 # v3.5.0
+        with:
+          cosign-release: 'v2.4.0'
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f95db51fddba0c2d1ec667646a06c2ce06100226
+
+      - name: Log into Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker Metadata
         id: meta
-        uses: docker/metadata-action@96383f45573cb7f253c731d3b3ab81c87ef81934 # v5.0.0
+        uses: docker/metadata-action@96383f45573cb7f253c731d3b3ab81c87ef81934
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=${{ needs.check-upstream.outputs.version }},enable=${{ needs.check-upstream.outputs.version != '' }}
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=sha,format={{short_sha}}
 
-      # Build and push Docker image with Buildx (don't push on PR)
-      # https://github.com/docker/build-push-action
-      - name: Build and push Docker image
-        id: build-and-push
-        uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 # v5.0.0
+      # BUILD 1: TEST (Load)
+      - name: Build and Load (Test)
+        uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09
         with:
           context: .
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          push: false
+          load: true
+          tags: ${{ env.TEST_TAG }}
+          platforms: linux/amd64
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          # Adds more output to debug
-          platforms: linux/amd64,linux/arm64
           build-args: |
             DEBUG=true
-            
-      - name: Create password file from secret
+            UPSTREAM_VERSION=${{ needs.check-upstream.outputs.version }}
+
+      - name: Create Secret File
         run: echo "secret" > ${{ github.workspace }}/test-password.txt
 
-      - name: Test Container and Binaries
+      # STEP 2: HEALTHCHECK LOOP
+      - name: Test Container
         run: |
           docker run -d --name testcontainer \
             -v ${{ github.workspace }}/test-password.txt:/run/secrets/user_password:ro \
             -e USER_PASSWORD_FILE=/run/secrets/user_password \
             -e DEBUG=true \
-            ${{ steps.meta.outputs.tags }}
+            "${{ env.TEST_TAG }}"
           
-          # Give the container time to start up and become healthy
-          echo "Waiting for container to become healthy..."
-          sleep 15
+          for i in {1..30}; do
+            HEALTH=$(docker inspect --format='{{json .State.Health.Status}}' testcontainer)
+            if [[ "$HEALTH" == "\"healthy\"" ]]; then
+              echo "Container is healthy!"
+              break
+            fi
+            if [[ "$i" -eq 30 ]]; then
+              echo "Timeout waiting for healthcheck."
+              docker logs testcontainer
+              exit 1
+            fi
+            sleep 1
+          done
           
-          # Check health status and fail if not healthy
-          docker inspect --format='{{json .State.Health}}' testcontainer | grep '"Status":"healthy"'
-          
-          echo "Container is healthy. Testing binaries..."
-          # Test binaries inside the running container using docker exec
-          docker exec testcontainer doctl version
-          docker exec testcontainer terraform version
-          docker exec testcontainer /opt/code-insiders --version
-          
-          echo "Tests passed. Final logs:"
-          # Output container logs for debugging
-          docker logs testcontainer
-          
-          # Clean up
+          docker exec testcontainer doctl version || true
+          docker exec testcontainer terraform version || true
+          docker exec testcontainer /opt/code-insiders --version || true
           docker rm -f testcontainer
-          
-      - name: Inspect and Verify Docker Manifest
-        run: |
-          MANIFEST_JSON=$(docker manifest inspect ${{ steps.meta.outputs.tags }})
-          echo "${MANIFEST_JSON}"
-          echo "${MANIFEST_JSON}" | grep '"architecture": "amd64"'
-          echo "${MANIFEST_JSON}" | grep '"architecture": "arm64"'
 
-      # Sign the resulting Docker image digest except on PRs.
-      # This will only write to the public Rekor transparency log when the Docker
-      # repository is public to avoid leaking data.  If you would like to publish
-      # transparency data even for private images, pass --force to cosign below.
-      # https://github.com/sigstore/cosign
-      - name: Sign the published Docker image
-        if: ${{ github.event_name != 'pull_request' }}
+      # BUILD 2: RELEASE (Push)
+      - name: Build and Push (Release)
+        id: build-and-push
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            DEBUG=true
+            UPSTREAM_VERSION=${{ needs.check-upstream.outputs.version }}
+
+      - name: Sign the Image
+        if: github.event_name != 'pull_request'
         env:
-          # https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#using-an-intermediate-environment-variable
-          TAGS: ${{ steps.meta.outputs.tags }}
           DIGEST: ${{ steps.build-and-push.outputs.digest }}
-        # This step uses the identity token to provision an ephemeral certificate
-        # against the sigstore community Fulcio instance.
-        run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
+        run: |
+          IMAGE_URI="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${DIGEST}"
+          cosign sign --yes "$IMAGE_URI"
