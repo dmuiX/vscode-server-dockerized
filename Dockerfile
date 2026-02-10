@@ -69,6 +69,8 @@ RUN retry() { \
 # Runtime stage: minimal image with only needed binaries and libs
 FROM ubuntu:24.04 AS runtime_stage
 
+ARG GITHUB_REPOSITORY=unknown
+
 LABEL org.opencontainers.image.title="VSCode Server Dockerized" \
       org.opencontainers.image.description="VSCode Insiders server with Terraform" \
       org.opencontainers.image.source="https://github.com/${GITHUB_REPOSITORY}" \

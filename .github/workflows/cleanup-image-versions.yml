@@ -1,4 +1,4 @@
-name: Cleanup Old GHCR Images
+name: cleanup image versions
 
 on:
   workflow_dispatch:
@@ -73,7 +73,7 @@ jobs:
             echo "${{ steps.digest.outputs.digest }}" > digest.txt
             echo "changed=true" >> $GITHUB_OUTPUT
           fi
-          
+
       - name: Cleanup GHCR
         if: steps.compare.outputs.changed == 'true'
         env:
@@ -134,8 +134,8 @@ jobs:
           )
 
           if [[ -z "$LATEST_ID" ]]; then
-            echo "No latest tag found -> aborting."
-            exit 1
+            echo "No latest tag found -> skipping cleanup."
+            exit 0
           fi
 
           echo "Keeping version ID: $LATEST_ID"
@@ -164,8 +164,8 @@ jobs:
           echo "Image versions: $IMAGE_COUNT"
 
           if [[ "$IMAGE_COUNT" -eq 0 ]]; then
-            echo "No image versions found -> aborting."
-            exit 1
+            echo "No image versions found -> skipping cleanup."
+            exit 0
           fi
 
           KEEP_IMAGE_IDS=$(
