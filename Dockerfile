@@ -5,7 +5,9 @@ ARG DEBUG=false
 ENV DEBUG=${DEBUG}
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+RUN if [ "$DEBUG" = "true" ]; then set -x ; fi && \
     apt-get update && apt-get install -y --no-install-recommends \
     curl jq wget tar ca-certificates gnupg2 software-properties-common \
     lsb-release apt-transport-https
@@ -14,13 +16,13 @@ RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
 RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
     curl -fsSL https://apt.releases.hashicorp.com/gpg | apt-key add - && \
     apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main" && \
-    apt-get update && apt-get install -y terraform
+    apt-get update && apt-get install -y --no-install-recommends terraform
 
 # Fetch latest doctl version
 RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
-    DOCTL_VERSION=$(curl -s https://api.github.com/repos/digitalocean/doctl/releases/latest | jq -r '.tag_name' | sed 's/^v//') && \
-    echo "Installing doctl version $DOCTL_VERSION" && \
-    curl -L https://github.com/digitalocean/doctl/releases/download/v${DOCTL_VERSION}/doctl-${DOCTL_VERSION}-linux-amd64.tar.gz | tar -xzC /usr/local/bin && \
+    DOCTL_VERSION=$(curl -fsSL https://api.github.com/repos/digitalocean/doctl/releases/latest | jq -r '.tag_name' | sed 's/^v//') && \
+    echo "Installing doctl version \"$DOCTL_VERSION\"" && \
+    curl -fsSL "https://github.com/digitalocean/doctl/releases/download/v${DOCTL_VERSION}/doctl-${DOCTL_VERSION}-linux-amd64.tar.gz" | tar -xzC /usr/local/bin && \
     chmod +x /usr/local/bin/doctl
 
 # Setup VSCode Insiders
@@ -29,18 +31,19 @@ RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
     case "$ARCH" in \
       amd64) TARGET_API='linux-x64' ; TARGET_DL='cli-linux-x64' ;; \
       arm64) TARGET_API='linux-arm64' ; TARGET_DL='cli-linux-arm64' ;; \
-      *) echo "Unsupported architecture: $ARCH" && exit 1 ;; \
+      *) echo "Unsupported architecture: \"$ARCH\"" && exit 1 ;; \
     esac && \
-    echo "Detected architecture: $ARCH" && \
-    COMMIT_HASH=$(wget -qO- https://update.code.visualstudio.com/api/commits/insider/${TARGET_API} | jq -r '.[0]') && \
-    echo "Fetching VSCode Insiders commit $COMMIT_HASH" && \
-    wget -qO- https://update.code.visualstudio.com/commit:$COMMIT_HASH/${TARGET_DL}/insider | tar xvz -C /opt && \
+    echo "Detected architecture: \"$ARCH\"" && \
+    COMMIT_HASH=$(curl -fsSL "https://update.code.visualstudio.com/api/commits/insider/${TARGET_API}" | jq -r '.[0]') && \
+    echo "Fetching VSCode Insiders commit \"$COMMIT_HASH\"" && \
+    curl -fsSL "https://update.code.visualstudio.com/commit:$COMMIT_HASH/${TARGET_DL}/insider" | tar xvz -C /opt && \
     chmod +x /opt/code /entrypoint.sh
 
 # -------------------------------------------------------------------------
 # Commented out stable VSCode install code for reference:
 # 
-# RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
+# RUN set -o pipefail && \
+#      if [ "$DEBUG" = "true" ]; then set -x; fi && \
 #     CODE_VERSION="latest" && \
 #     ARCH=$(dpkg --print-architecture) && \
 #     echo "ARCH: $ARCH" && \
@@ -63,7 +66,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install runtime dependencies only
 RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
-    apt-get update && apt-get install -y --no-install-recommends \
+    apt-get update && apt-get upgrade -y --no-install-recommends && apt-get install -y --no-install-recommends \
     ca-certificates curl zsh vim sudo bat inetutils-ping dnsutils ncat nmap && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 

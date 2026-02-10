@@ -37,6 +37,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Lint Dockerfile
+      - name: Lint Dockerfile
+        uses: hadolint/hadolint-action@v3.3.0
+        with:
+          dockerfile: Dockerfile
+          config: .hadolint.json
       # Install the cosign tool except on PR
       # https://github.com/sigstore/cosign-installer
       - name: Install cosign
@@ -81,7 +87,30 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # Adds more output to debug
+          progress: plain
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            USER_PASSWORD_FILE=/run/secrets/user_password
+            DEBUG=true
 
+      - name: Test built image binaries
+        run: |
+          docker run --rm ${{ steps.meta.outputs.tags }} doctl version
+          docker run --rm ${{ steps.meta.outputs.tags }} terraform version
+          docker run --rm ${{ steps.meta.outputs.tags }} /opt/code --version
+
+      - name: Inspect Docker manifest
+        run: docker manifest inspect ${{ steps.meta.outputs.tags }}
+
+      - name: Run container and check health
+        run: |
+          docker run -d --name testcontainer ${{ steps.meta.outputs.tags }}
+          sleep 10
+          docker inspect --format='{{json .State.Health}}' testcontainer
+          docker logs testcontainer
+          docker rm -f testcontainer
+    
       # Sign the resulting Docker image digest except on PRs.
       # This will only write to the public Rekor transparency log when the Docker
       # repository is public to avoid leaking data.  If you would like to publish
