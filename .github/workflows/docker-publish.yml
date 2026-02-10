@@ -71,11 +71,25 @@ jobs:
           if retry_manifest "$MY_IMAGE:$UPSTREAM_COMMIT"; then
             echo "Image exists."
             echo "needs_update=false" >> $GITHUB_OUTPUT
+            echo "summary=Image tag already exists in registry -> skip build" >> $GITHUB_OUTPUT
           else
             docker manifest inspect "$MY_IMAGE:$UPSTREAM_COMMIT" || echo "inspect failed"
             echo "Update required."
             echo "needs_update=true" >> $GITHUB_OUTPUT
+            echo "summary=New Insiders commit not found in registry -> build" >> $GITHUB_OUTPUT
           fi
+          
+      - name: Job Summary
+        if: always()
+        run: |
+          {
+            echo "### Docker publish check"
+            echo ""
+            echo "- Insiders commit: \`${{ steps.check.outputs.version }}\`"
+            echo "- Registry image: \`${{ env.REGISTRY }}/${{ steps.lowercase.outputs.image_name }}\`"
+            echo "- Needs update: \`${{ steps.check.outputs.needs_update }}\`"
+            echo "- Result: ${{ steps.check.outputs.summary }}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # -------------------------------------------------------------------------
   # JOB 2: BUILD & RELEASE
@@ -96,6 +110,12 @@ jobs:
       TEST_TAG: localhost/${{ needs.check-upstream.outputs.image_name_lower }}:test
 
     steps:
+      - name: Skip reason
+        if: needs.check-upstream.outputs.needs_update != 'true'
+        run: |
+          echo "No new Insiders build found. Skipping build."
+          echo "Reason: ${{ needs.check-upstream.outputs.summary }}"
+
       - name: Checkout repository
         uses: actions/checkout@v5
 
