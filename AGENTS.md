@@ -25,6 +25,11 @@ Use **Conventional Commits**:
 type(scope optional): short imperative
 ```
 
+### Commit body (required)
+- Always include a short commit body
+- Explain what changed and why in 1-3 lines
+- Keep it factual and concise
+
 ### Allowed types
 - feat
 - fix
