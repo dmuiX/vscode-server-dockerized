@@ -1,5 +1,6 @@
 {
   "ignored": [
     "DL3008",  # Pin versions in apt-get install
+    "DL3002"   # Ignore Last USER should not be root
   ]
 }

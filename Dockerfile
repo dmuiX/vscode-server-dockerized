@@ -5,7 +5,7 @@ ARG DEBUG=false
 ENV DEBUG=${DEBUG}
 ENV DEBIAN_FRONTEND=noninteractive
 
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 RUN if [ "$DEBUG" = "true" ]; then set -x ; fi && \
     apt-get update && apt-get install -y --no-install-recommends \
@@ -14,8 +14,10 @@ RUN if [ "$DEBUG" = "true" ]; then set -x ; fi && \
 
 # Install Terraform repo and terraform binary
 RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
-    curl -fsSL https://apt.releases.hashicorp.com/gpg | apt-key add - && \
-    apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main" && \
+    install -m 0755 -d /etc/apt/keyrings && \
+    curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /etc/apt/keyrings/hashicorp.gpg && \
+    chmod a+r /etc/apt/keyrings/hashicorp.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/hashicorp.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/hashicorp.list > /dev/null && \
     apt-get update && apt-get install -y --no-install-recommends terraform
 
 # Fetch latest doctl version
@@ -68,15 +70,16 @@ RUN retry() { \
 # Runtime stage: minimal image with only needed binaries and libs
 FROM ubuntu:24.04 as runtime_stage
 
-ARG USER_PASSWORD_FILE
-ENV USER_PASSWORD_FILE=${USER_PASSWORD_FILE:-/run/secrets/user_password}
-
+ARG DEBUG=false
+ENV DEBUG=${DEBUG}
 ENV DEBIAN_FRONTEND=noninteractive
+
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 # Install runtime dependencies only and clean up
 RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
     apt-get update && apt-get upgrade -y --no-install-recommends && apt-get install -y --no-install-recommends \
-    ca-certificates curl zsh vim sudo bat inetutils-ping dnsutils ncat nmap && \
+    ca-certificates curl zsh vim sudo bat inetutils-ping dnsutils ncat nmap gosu git && \
     apt-get clean && \
     apt-get autoclean && \
     apt-get autoremove --purge -y && \
@@ -92,22 +95,14 @@ RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
     chmod +x /usr/local/bin/doctl /usr/bin/terraform /opt/code-insiders /entrypoint.sh && \
     chown -R root:root /opt/code-insiders /entrypoint.sh
 
-# Add user and permissions setup as before
-RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
-    useradd -ms /bin/zsh vscode && \
-    usermod -aG sudo vscode && \
-    groupmod -n vscode vscode && \
-    usermod -g users vscode && \
-    usermod -d /home/vscode -m vscode && \
-    chown -R vscode:vscode /home/vscode
-
-USER vscode
-
-WORKDIR /home/vscode
+User root
+# Will set to / anyways with this is explicit !
+WORKDIR / 
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:8000/health || exit 1
+  CMD curl -f http://localhost:8000 || exit 1
 
+ # Just Information tells the User the Application is using Port 8000
 EXPOSE 8000
 
 ENTRYPOINT [ "/entrypoint.sh" ]
