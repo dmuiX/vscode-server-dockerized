@@ -2,11 +2,14 @@ name: Cleanup Old GHCR Images
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 3 * * 0"
+  workflow_run:
+    workflows: ["Docker"]
+    types:
+      - completed
 
 jobs:
   cleanup:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       packages: write
