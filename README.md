@@ -55,3 +55,12 @@ The server is started with `--without-connection-token`, which means **no built-
 Only expose this service behind a trusted reverse proxy or in a private network.
 
 The image is scanned for CVEs in the upstream workflow. Findings are reported for visibility only and do not fail the build.
+
+## CI / GHCR
+The Docker publish workflow builds and pushes the image to GHCR.
+After a successful publish, a cleanup workflow removes old versions while keeping the most recent images and their SBOM/provenance artifacts.
+
+## Project Instructions (Codex/Copilot)
+This repo includes guidance for automated assistants:
+- `AGENTS.md` is used by Codex for contribution rules and coding conventions.
+- `.github/copilot-instructions.md` is used by GitHub Copilot for editing guidance.
