@@ -45,9 +45,11 @@ jobs:
             gh api --paginate \
               -H "Accept: application/vnd.github+json" \
               "$API_BASE/packages/container/$PACKAGE_NAME/versions" |
-            jq -s 'add' |
+            jq -s 'flatten | map(select(type == "object"))' |
             jq -r '
-              [.[] | select(.metadata.container.tags | index("latest"))]
+              [ .[]
+                | select((.metadata.container.tags // []) | index("latest"))
+              ]
               | sort_by(.created_at)
               | last
               | .name // empty
@@ -128,7 +130,7 @@ jobs:
             gh api --paginate \
               -H "Accept: application/vnd.github+json" \
               "$API_BASE/packages/container/$PACKAGE_NAME/versions" |
-            jq -s 'add'
+            jq -s 'flatten | map(select(type == "object"))'
           )
 
           COUNT=$(echo "$ALL_VERSIONS" | jq 'length')
@@ -143,7 +145,7 @@ jobs:
           # Debug overview
           ########################################
           echo "Versions overview:"
-          echo "$ALL_VERSIONS" | jq '.[] | {id, tags:.metadata.container.tags}'
+          echo "$ALL_VERSIONS" | jq '.[] | select(type == "object") | {id, tags:.metadata.container.tags}'
 
           ########################################
           # Identify newest latest-tag
@@ -151,7 +153,7 @@ jobs:
           LATEST_ID=$(
             echo "$ALL_VERSIONS" |
             jq '
-              [.[] | select(.metadata.container.tags | index("latest"))]
+              [.[] | select((.metadata.container.tags // []) | index("latest"))]
               | sort_by(.created_at)
               | last
               | .id // empty
