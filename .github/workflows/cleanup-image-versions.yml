@@ -156,7 +156,7 @@ jobs:
               [.[] | select((.metadata.container.tags // []) | index("latest"))]
               | sort_by(.created_at)
               | last
-              | .id // empty
+              | .id? // empty
             '
           )
 
@@ -201,7 +201,7 @@ jobs:
           fi
 
           KEEP_IMAGE_IDS=$(
-            echo "$IMAGE_VERSIONS" | jq -r '.[-3:][]? | select(type == "object") | .id'
+            echo "$IMAGE_VERSIONS" | jq -r '.[-3:][]? | select(type == "object") | .id? // empty'
           )
 
           KEEP_IMAGE_DIGESTS_JSON=$(
@@ -226,7 +226,7 @@ jobs:
               .[]
               | select(type == "object")
               | select(.metadata.container.subject.digest? and ($keepDigests | index(.metadata.container.subject.digest)))
-              | .id
+              | .id? // empty
             '
           )
 
@@ -237,7 +237,7 @@ jobs:
                 .[]
                 | select(type == "object")
                 | select((.metadata.container.subject.digest? | not) and (.created_at >= $cutoff))
-                | .id
+                | .id? // empty
               '
             )
           else
@@ -260,8 +260,9 @@ jobs:
             jq -r --argjson keepIds "$KEEP_IDS_JSON" '
               .[]
               | select(type == "object")
-              | select(($keepIds | index((.id | tostring))) | not)
-              | .id
+              | select(.id? != null)
+              | select(($keepIds | index((.id? | tostring))) | not)
+              | .id? // empty
             '
           )
 
