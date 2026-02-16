@@ -110,12 +110,6 @@ jobs:
       TEST_TAG: localhost/${{ needs.check-upstream.outputs.image_name_lower }}:test
 
     steps:
-      - name: Skip reason
-        if: needs.check-upstream.outputs.needs_update != 'true'
-        run: |
-          echo "No new Insiders build found. Skipping build."
-          echo "Reason: ${{ needs.check-upstream.outputs.summary }}"
-
       - name: Checkout repository
         uses: actions/checkout@v5
 

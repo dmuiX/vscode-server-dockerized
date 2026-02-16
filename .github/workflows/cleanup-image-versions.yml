@@ -150,7 +150,7 @@ jobs:
           ########################################
           # Identify newest latest-tag
           ########################################
-          LATEST_ID=$(
+          LATEST_VERSION_ID=$(
             echo "$ALL_VERSIONS" |
             jq '
               [.[] | select((.metadata.container.tags // []) | index("latest"))]
@@ -160,12 +160,12 @@ jobs:
             '
           )
 
-          if [[ -z "$LATEST_ID" ]]; then
+          if [[ -z "$LATEST_VERSION_ID" ]]; then
             echo "No latest tag found -> skipping cleanup."
             exit 0
           fi
 
-          echo "Keeping version ID: $LATEST_ID"
+          echo "Newest latest-tag version ID: $LATEST_VERSION_ID"
 
           ########################################
           # Keep last 3 image versions
@@ -181,6 +181,7 @@ jobs:
             echo "$ALL_VERSIONS" |
             jq --argjson imageTypes "$IMAGE_MEDIA_TYPES" '
               [ .[]
+                | select(type == "object")
                 | select(
                     (.metadata.container.manifest.mediaType as $mt | $imageTypes | index($mt))
                     or
@@ -200,7 +201,7 @@ jobs:
           fi
 
           KEEP_IMAGE_IDS=$(
-            echo "$IMAGE_VERSIONS" | jq -r '.[-3:][]?.id'
+            echo "$IMAGE_VERSIONS" | jq -r '.[-3:][]? | select(type == "object") | .id'
           )
 
           KEEP_IMAGE_DIGESTS_JSON=$(
@@ -223,6 +224,7 @@ jobs:
             echo "$ALL_VERSIONS" |
             jq -r --argjson keepDigests "$KEEP_IMAGE_DIGESTS_JSON" '
               .[]
+              | select(type == "object")
               | select(.metadata.container.subject.digest? and ($keepDigests | index(.metadata.container.subject.digest)))
               | .id
             '
@@ -233,6 +235,7 @@ jobs:
               echo "$ALL_VERSIONS" |
               jq -r --arg cutoff "$CUTOFF_CREATED_AT" '
                 .[]
+                | select(type == "object")
                 | select((.metadata.container.subject.digest? | not) and (.created_at >= $cutoff))
                 | .id
               '
@@ -256,7 +259,8 @@ jobs:
             echo "$ALL_VERSIONS" |
             jq -r --argjson keepIds "$KEEP_IDS_JSON" '
               .[]
-              | select(($keepIds | index(.id)) | not)
+              | select(type == "object")
+              | select(($keepIds | index((.id | tostring))) | not)
               | .id
             '
           )
