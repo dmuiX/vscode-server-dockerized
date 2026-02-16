@@ -1,4 +1,4 @@
-name: publish vscode-insiders image
+name: Docker Publish
 
 on:
   schedule:

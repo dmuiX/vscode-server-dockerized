@@ -1,4 +1,4 @@
-name: cleanup image versions
+name: Cleanup Image Versions
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ on:
         required: false
         default: 'true'
   workflow_run:
-    workflows: ["Docker"]
+    workflows: ["Docker Publish"]
     types:
       - completed
 
