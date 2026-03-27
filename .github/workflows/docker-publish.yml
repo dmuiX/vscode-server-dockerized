@@ -120,7 +120,7 @@ jobs:
           config: .hadolint.json
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@v4
+        uses: sigstore/cosign-installer@v4.1.1 # currently no @v4 available?
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
