@@ -266,8 +266,12 @@ jobs:
 
           git add charts/
           git diff --staged --quiet || git commit -m "chore: update helm chart to ${{ needs.check-upstream.outputs.version }}"
-          git pull --ff-only
-          git push
+
+          for i in {1..5}; do
+            git pull --rebase origin main && git push && break
+            echo "Push attempt $i failed, retrying..."
+            sleep $((i * 5))
+          done
 
       - name: Job Summary
         if: always()
