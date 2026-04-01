@@ -24,6 +24,8 @@ jobs:
     outputs:
       needs_update: ${{ steps.check.outputs.needs_update }}
       version: ${{ steps.check.outputs.version }}
+      calver: ${{ steps.check.outputs.calver }}
+      commit: ${{ steps.check.outputs.commit }}
       image_name_lower: ${{ steps.lowercase.outputs.image_name }}
     steps:
       # REQUIRED FIX: Docker registries crash on capital letters.
@@ -52,14 +54,20 @@ jobs:
             exit 1
           fi
 
+          SHORT_COMMIT=${UPSTREAM_COMMIT:0:7}
+          CALVER=$(date +%Y.%m.%d)
+          VERSION="${CALVER}-${SHORT_COMMIT}"
+
           echo "Latest VSCode Insiders commit: $UPSTREAM_COMMIT"
-          echo "version=$UPSTREAM_COMMIT" >> $GITHUB_OUTPUT
+          echo "commit=$UPSTREAM_COMMIT" >> $GITHUB_OUTPUT
+          echo "calver=$CALVER" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
           # 2. Check if this version exists in YOUR registry
           MY_IMAGE="${{ env.REGISTRY }}/${{ steps.lowercase.outputs.image_name }}"
           echo "MY_IMAGE=$MY_IMAGE"
-          echo "Checking tag: $UPSTREAM_COMMIT"
-          
+          echo "Checking tag: $VERSION"
+
           retry_manifest() {
             for i in {1..3}; do
               docker manifest inspect "$1" > /dev/null 2>&1 && return 0
@@ -67,18 +75,18 @@ jobs:
             done
             return 1
           }
-          
-          if retry_manifest "$MY_IMAGE:$UPSTREAM_COMMIT"; then
+
+          if retry_manifest "$MY_IMAGE:$VERSION"; then
             echo "Image exists."
             echo "needs_update=false" >> $GITHUB_OUTPUT
             echo "summary=Image tag already exists in registry -> skip build" >> $GITHUB_OUTPUT
           else
-            docker manifest inspect "$MY_IMAGE:$UPSTREAM_COMMIT" || echo "inspect failed"
+            docker manifest inspect "$MY_IMAGE:$VERSION" || echo "inspect failed"
             echo "Update required."
             echo "needs_update=true" >> $GITHUB_OUTPUT
             echo "summary=New Insiders commit not found in registry -> build" >> $GITHUB_OUTPUT
           fi
-          
+
       - name: Job Summary
         if: always()
         run: |
@@ -140,6 +148,7 @@ jobs:
           tags: |
             type=raw,value=latest
             type=raw,value=${{ needs.check-upstream.outputs.version }}
+            type=raw,value=${{ needs.check-upstream.outputs.calver }}
 
       # BUILD 1: TEST (Load)
       - name: Build and Load (Test)
@@ -154,7 +163,7 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             DEBUG=true
-            UPSTREAM_VERSION=${{ needs.check-upstream.outputs.version }}
+            UPSTREAM_VERSION=${{ needs.check-upstream.outputs.commit }}
             GITHUB_REPOSITORY=${{ github.repository }}
 
       - name: Scan for Vulnerabilities
@@ -214,7 +223,7 @@ jobs:
           platforms: linux/amd64
           build-args: |
             DEBUG=true
-            UPSTREAM_VERSION=${{ needs.check-upstream.outputs.version }}
+            UPSTREAM_VERSION=${{ needs.check-upstream.outputs.commit }}
             GITHUB_REPOSITORY=${{ github.repository }}
 
       - name: Sign the Image
@@ -223,3 +232,31 @@ jobs:
         run: |
           IMAGE_URI="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${DIGEST}"
           cosign sign --yes "$IMAGE_URI"
+
+  chart-release:
+    needs: [check-upstream, build]
+    if: needs.check-upstream.outputs.needs_update == 'true'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+
+      - name: Update Chart appVersion
+        run: |
+          sed -i "s/^appVersion:.*/appVersion: \"${{ needs.check-upstream.outputs.version }}\"/" charts/Chart.yaml
+          echo "Updated appVersion to ${{ needs.check-upstream.outputs.version }}"
+          cat charts/Chart.yaml
+
+      - name: Run chart-releaser
+        uses: helm/chart-releaser-action@v1.7.0
+        env:
+          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"

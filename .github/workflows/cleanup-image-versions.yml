@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       force:
-        description: 'Run cleanup even if latest digest is unchanged'
+        description: "Run cleanup even if latest digest is unchanged"
         required: false
-        default: 'true'
+        default: "true"
   workflow_run:
     workflows: ["Docker Publish"]
     types:
