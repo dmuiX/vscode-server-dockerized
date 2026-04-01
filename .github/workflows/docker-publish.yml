@@ -23,6 +23,7 @@ jobs:
       packages: read # Required to check existing images in GHCR
     outputs:
       needs_update: ${{ steps.check.outputs.needs_update }}
+      needs_chart: ${{ steps.check.outputs.needs_chart }}
       version: ${{ steps.check.outputs.version }}
       calver: ${{ steps.check.outputs.calver }}
       commit: ${{ steps.check.outputs.commit }}
@@ -84,6 +85,16 @@ jobs:
             echo "Update required."
             echo "needs_update=true" >> $GITHUB_OUTPUT
             echo "summary=New Insiders commit not found in registry -> build" >> $GITHUB_OUTPUT
+          fi
+
+          # 3. Check if helm chart for this version exists
+          CHART_INDEX_URL="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/charts/index.yaml"
+          if curl -sf "$CHART_INDEX_URL" | grep -q "version: \"$VERSION\""; then
+            echo "Helm chart already exists."
+            echo "needs_chart=false" >> $GITHUB_OUTPUT
+          else
+            echo "Helm chart not found -> release needed."
+            echo "needs_chart=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Job Summary
@@ -234,7 +245,11 @@ jobs:
 
   chart-release:
     needs: [ check-upstream, build ]
-    if: needs.check-upstream.outputs.needs_update == 'true'
+    if: |
+      always() &&
+      needs.check-upstream.result == 'success' &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped') &&
+      (needs.check-upstream.outputs.needs_update == 'true' || needs.check-upstream.outputs.needs_chart == 'true')
     permissions:
       contents: write
     runs-on: ubuntu-latest
