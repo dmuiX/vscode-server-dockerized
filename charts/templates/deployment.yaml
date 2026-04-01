@@ -63,13 +63,14 @@ spec:
                   name: {{ .Values.user.existingSecret }}
                   key: {{ .Values.user.userKey }}
           volumeMounts:
-            - name: {{ .Values.user.existingSecret }}-password
+            - name: password
               mountPath: /run/secrets/
+              readOnly: true
             {{- with .Values.volumeMounts }}
             {{- toYaml . | nindent 12 }}
-          {{- end }}
+            {{- end }}
       volumes:
-        - name: {{ .Values.user.existingSecret }}-password
+        - name: password
           secret:
             secretName: {{ .Values.user.existingSecret }}
             items:

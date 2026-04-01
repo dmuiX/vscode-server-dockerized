@@ -20,7 +20,7 @@ nameOverride: ""
 fullnameOverride: ""
 
 user:
-  existingSecret: ghcr-credentials
+  existingSecret: vscode-server-credentials
   userKey: username
   passwordKey: password
 
