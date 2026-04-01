@@ -268,3 +268,15 @@ jobs:
           git diff --staged --quiet || git commit -m "chore: update helm chart to ${{ needs.check-upstream.outputs.version }}"
           git pull --ff-only
           git push
+
+      - name: Job Summary
+        if: always()
+        run: |
+          {
+            echo "### Helm Chart Release"
+            echo ""
+            echo "- Chart: \`vscode-server-dockerized\`"
+            echo "- Version: \`${{ needs.check-upstream.outputs.version }}\`"
+            echo "- Repo URL: \`https://raw.githubusercontent.com/${{ github.repository }}/main/charts\`"
+            echo "- Install: \`helm install vscode-server-dockerized --version ${{ needs.check-upstream.outputs.version }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
