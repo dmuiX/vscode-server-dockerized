@@ -20,7 +20,7 @@ nameOverride: ""
 fullnameOverride: ""
 
 user:
-  existingSecret: credentials
+  existingSecret: ghcr-credentials
   userKey: username
   passwordKey: password
 
