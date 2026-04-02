@@ -26,6 +26,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "vscode-server.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automount }}
       {{- with .Values.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -56,7 +57,7 @@ spec:
           {{- end }}
           env:
             - name: USER_PASSWORD_FILE
-              value: /run/secrets/password
+              value: /etc/vscode-secrets/password
             - name: USERNAME
               valueFrom:
                 secretKeyRef:
@@ -64,7 +65,7 @@ spec:
                   key: {{ .Values.user.userKey }}
           volumeMounts:
             - name: password
-              mountPath: /run/secrets/
+              mountPath: /etc/vscode-secrets/
               readOnly: true
             {{- with .Values.volumeMounts }}
             {{- toYaml . | nindent 12 }}
