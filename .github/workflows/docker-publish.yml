@@ -87,13 +87,12 @@ jobs:
             echo "summary=New Insiders commit not found in registry -> build" >> $GITHUB_OUTPUT
           fi
 
-          # 3. Check if helm chart for this version exists
-          CHART_INDEX_URL="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/charts/index.yaml"
-          if curl -sf "$CHART_INDEX_URL" | grep -q "version: \"$VERSION\""; then
-            echo "Helm chart already exists."
+          # 3. Check if helm chart GitHub release for this version exists
+          if gh release view "vscode-server-$VERSION" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "Helm chart release already exists."
             echo "needs_chart=false" >> $GITHUB_OUTPUT
           else
-            echo "Helm chart not found -> release needed."
+            echo "Helm chart release not found -> release needed."
             echo "needs_chart=true" >> $GITHUB_OUTPUT
           fi
 
@@ -252,6 +251,7 @@ jobs:
       (needs.check-upstream.outputs.needs_update == 'true' || needs.check-upstream.outputs.needs_chart == 'true')
     permissions:
       contents: write
+      pages: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -264,30 +264,24 @@ jobs:
           git config user.name "${{ github.actor }}"
           git config user.email "${{ github.actor }}@users.noreply.github.com"
 
-      - name: Update Chart appVersion
+      - name: Update Chart version
         run: |
-          sed -i "s/^version:.*/version: \"${{ needs.check-upstream.outputs.version }}\"/" charts/Chart.yaml
-          sed -i "s/^appVersion:.*/appVersion: \"${{ needs.check-upstream.outputs.version }}\"/" charts/Chart.yaml
-          echo "Updated version and appVersion to ${{ needs.check-upstream.outputs.version }}"
-          cat charts/Chart.yaml
+          VERSION="${{ needs.check-upstream.outputs.version }}"
+          sed -i "s/^version:.*/version: \"$VERSION\"/" charts/Chart.yaml
+          sed -i "s/^appVersion:.*/appVersion: \"$VERSION\"/" charts/Chart.yaml
+          git add charts/Chart.yaml
+          git diff --staged --quiet || git commit -m "chore: update chart to $VERSION"
+          git push
 
-      - name: Install Helm
-        uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5.0.0
-
-      - name: create chart
-        run: |
-          helm package ./charts -d charts/
-          ls -t charts/*.tgz | tail -n +6 | xargs -r rm -f 
-          helm repo index charts/ --url https://raw.githubusercontent.com/${{ github.repository }}/main/charts
-
-          git add charts/
-          git diff --staged --quiet || git commit -m "chore: update helm chart to ${{ needs.check-upstream.outputs.version }}"
-
-          for i in {1..5}; do
-            git pull --rebase origin main && git push && break
-            echo "Push attempt $i failed, retrying..."
-            sleep $((i * 5))
-          done
+      - name: Run chart-releaser
+        id: chart-releaser
+        uses: helm/chart-releaser-action@v1.7.0
+        with:
+          charts_dir: "."
+          skip_existing: "true"
+          mark_as_latest: "true"
+        env:
+          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
       - name: Job Summary
         if: always()
@@ -295,8 +289,7 @@ jobs:
           {
             echo "### Helm Chart Release"
             echo ""
-            echo "- Chart: \`vscode-server-dockerized\`"
-            echo "- Version: \`${{ needs.check-upstream.outputs.version }}\`"
-            echo "- Repo URL: \`https://raw.githubusercontent.com/${{ github.repository }}/main/charts\`"
-            echo "- Install: \`helm install vscode-server-dockerized --version ${{ needs.check-upstream.outputs.version }}\`"
+            echo "- Changed charts: \`${{ steps.chart-releaser.outputs.changed_charts }}\`"
+            echo "- Chart version: \`${{ steps.chart-releaser.outputs.chart_version }}\`"
+            echo "- Pages URL: \`https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/\`"
           } >> "$GITHUB_STEP_SUMMARY"

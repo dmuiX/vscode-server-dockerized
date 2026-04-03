@@ -63,3 +63,13 @@ The username is injected as the `USERNAME` environment variable.
 | `nodeSelector` | Node selector | `{}` |
 | `tolerations` | Tolerations | `[]` |
 | `affinity` | Affinity rules | `{}` |
+
+## Learnings
+
+Hosting a Helm chart repo privately via `raw.githubusercontent.com` was painful:
+
+- Requires creating and managing multiple secrets (registry pull secrets, Flux `secretRef`, Renovate host rules)
+- Renovate cannot authenticate against `raw.githubusercontent.com` for private repos (sends `Authorization` header, but GitHub expects a signed token URL) — results in silent 404s
+- Manual `helm package` + `helm repo index` committed to `main` is fragile and clutters the repo with `.tgz` artifacts
+
+The solution: make the chart repo public and use [helm/chart-releaser-action](https://github.com/helm/chart-releaser-action). It automates packaging, GitHub Releases, and `gh-pages` index management — no manual steps needed.
