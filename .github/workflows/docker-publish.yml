@@ -289,7 +289,7 @@ jobs:
           {
             echo "### Helm Chart Release"
             echo ""
+            echo "- Chart version: \`${{ needs.check-upstream.outputs.version }}\`"
             echo "- Changed charts: \`${{ steps.chart-releaser.outputs.changed_charts }}\`"
-            echo "- Chart version: \`${{ steps.chart-releaser.outputs.chart_version }}\`"
             echo "- Pages URL: \`https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/\`"
           } >> "$GITHUB_STEP_SUMMARY"
