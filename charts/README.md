@@ -64,6 +64,18 @@ The username is injected as the `USERNAME` environment variable.
 | `tolerations` | Tolerations | `[]` |
 | `affinity` | Affinity rules | `{}` |
 
+## Naming
+
+Everything is called `vscode-server-dockerized` for consistency:
+
+| Thing | Name | Where it's set |
+| --- | --- | --- |
+| GitHub repo | `vscode-server-dockerized` | GitHub |
+| Docker image | `ghcr.io/dmuix/vscode-server-dockerized` | Dockerfile / GHCR |
+| Helm repo alias | `vscode-server-dockerized` | `helm repo add` (your choice) |
+| Helm chart name | `vscode-server` | `charts/Chart.yaml` |
+| Helm release name | `vscode-server` | `helm install` / HelmRelease (your choice) |
+
 ## Learnings
 
 Hosting a Helm chart repo privately via `raw.githubusercontent.com` was painful:
