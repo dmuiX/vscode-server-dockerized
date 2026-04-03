@@ -10,9 +10,9 @@ A Helm chart to deploy [vscode-server-dockerized](https://github.com/dmuiX/vscod
 ## Installation
 
 ```bash
-helm repo add vscode-server https://dmuiX.github.io/vscode-server-dockerized
+helm repo add vscode-server-dockerized https://dmuiX.github.io/vscode-server-dockerized
 helm repo update
-helm install vscode-server vscode-server/vscode-server
+helm install vscode-server vscode-server-dockerized/vscode-server
 ```
 
 ## Authentication
