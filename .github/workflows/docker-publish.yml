@@ -271,6 +271,7 @@ jobs:
           sed -i "s/^appVersion:.*/appVersion: \"$VERSION\"/" charts/Chart.yaml
           git add charts/Chart.yaml
           git diff --staged --quiet || git commit -m "chore: update chart to $VERSION"
+          git pull --rebase origin main
           git push
 
       - name: Run chart-releaser
