@@ -284,6 +284,18 @@ jobs:
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
+      - name: Sync README to gh-pages
+        run: |
+          git fetch origin gh-pages
+          git checkout gh-pages
+          git checkout main -- charts/README.md
+          mv charts/README.md README.md
+          rm -rf charts
+          git add README.md
+          git diff --staged --quiet || git commit -m "docs: sync README from main"
+          git push origin gh-pages
+          git checkout main
+
       - name: Job Summary
         if: always()
         run: |
