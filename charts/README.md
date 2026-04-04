@@ -85,3 +85,12 @@ Hosting a Helm chart repo privately via `raw.githubusercontent.com` was painful:
 - Manual `helm package` + `helm repo index` committed to `main` is fragile and clutters the repo with `.tgz` artifacts
 
 The solution: make the chart repo public and use [helm/chart-releaser-action](https://github.com/helm/chart-releaser-action). It automates packaging, GitHub Releases, and `gh-pages` index management — no manual steps needed.
+
+- most awful thing was to get the secrets right
+i needed a github pullsecret in form of a dockerconfig but also a github credentials for the helmrelease kind of mixed up both
+- and to get the helmrelease repo address correct
+And this secret here
+    user:
+      existingSecret: vscode-server-credentials
+      userKey: username
+      passwordKey: password
