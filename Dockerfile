@@ -98,7 +98,8 @@ COPY entrypoint.sh /entrypoint.sh
 
 RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
     chmod +x /usr/local/bin/terraform /opt/code-insiders /entrypoint.sh && \
-    chown -R root:root /opt/code-insiders /entrypoint.sh
+    chown -R root:root /opt/code-insiders /entrypoint.sh && \
+    curl -fsSL https://claude.ai/install.sh | bash
 
 USER root
 # Will set to / anyways with this is explicit !
