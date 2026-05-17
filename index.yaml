@@ -2,6 +2,16 @@ apiVersion: v1
 entries:
   vscode-server:
   - apiVersion: v2
+    appVersion: 2026.05.17-f805d63
+    created: "2026-05-17T03:40:39.578237848Z"
+    description: A Helm chart to deploy vscode-server
+    digest: 18aef36d52f1786bba7d1dc5e1cb2bfaacccc2da2252934c481f89e6b4d97618
+    name: vscode-server
+    type: application
+    urls:
+    - https://github.com/dmuiX/vscode-server-dockerized/releases/download/vscode-server-2026.05.17-f805d63/vscode-server-2026.05.17-f805d63.tgz
+    version: 2026.05.17-f805d63
+  - apiVersion: v2
     appVersion: 2026.05.16-f805d63
     created: "2026-05-16T03:40:55.094240074Z"
     description: A Helm chart to deploy vscode-server
@@ -461,4 +471,4 @@ entries:
     urls:
     - https://github.com/dmuiX/vscode-server-dockerized/releases/download/vscode-server-2026.04.03-3d70aab/vscode-server-2026.04.03-3d70aab.tgz
     version: 2026.04.03-3d70aab
-generated: "2026-05-16T03:40:55.095046072Z"
+generated: "2026-05-17T03:40:39.578875964Z"
