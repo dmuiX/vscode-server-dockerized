@@ -161,7 +161,7 @@ jobs:
 
       # BUILD 1: TEST (Load)
       - name: Build and Load (Test)
-        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
         with:
           context: .
           push: false
@@ -219,7 +219,7 @@ jobs:
       # BUILD 2: RELEASE (Push)
       - name: Build and Push (Release)
         id: build-and-push
-        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7.0.0
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
         with:
           context: .
           push: true
