@@ -20,7 +20,5 @@ tmp/
 .idea/
 
 __pycache__/
-connection-token
 sudo-password
 test-password.txt
-test-connection-token.txt

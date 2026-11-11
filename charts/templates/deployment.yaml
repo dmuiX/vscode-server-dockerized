@@ -56,8 +56,6 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           env:
-            - name: CONNECTION_TOKEN_FILE
-              value: /etc/vscode-secrets/connection-token
             - name: USER_PASSWORD_FILE
               value: /etc/vscode-secrets/password
             - name: USERNAME
@@ -79,8 +77,6 @@ spec:
             items:
               - key: {{ .Values.user.passwordKey }}
                 path: password
-              - key: {{ .Values.user.connectionTokenKey }}
-                path: connection-token
         {{- with .Values.volumes }}
         {{- toYaml . | nindent 8 }}
       {{- end }}

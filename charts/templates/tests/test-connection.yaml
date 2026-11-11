@@ -13,10 +13,7 @@ spec:
     - name: wget
       image: busybox
       # If NetworkPolicy is enabled, explicitly allow this test pod before helm test.
-      # Authentication must reject the unauthenticated request, not return a page.
-      command: ['sh', '-c']
-      args:
-        - >-
-          wget -T 10 -S -O /dev/null http://{{ include "vscode-server.fullname" . }}:{{ .Values.service.port }}/ 2>&1
-          | grep -q 'HTTP/1.1 403'
+      # This internal check bypasses the proxy; user-facing authentication lives there.
+      command: ['wget']
+      args: ['-T', '180', '-O', '/dev/null', 'http://{{ include "vscode-server.fullname" . }}:{{ .Values.service.port }}/']
   restartPolicy: Never

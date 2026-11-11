@@ -18,7 +18,7 @@ Build locally:
 docker build -t vscode-server-dockerized .
 ```
 
-Provide a randomly generated connection token (at least 32 letters, digits, `_` or `-`) in `connection-token`, and your sudo password in `sudo-password`, using your secret manager. Neither file belongs in Git. Both files must be readable by the configured runtime UID/GID; never make credentials world-readable on the host just to fix a permission error.
+Run the service behind your authenticated reverse proxy. VS Code intentionally uses `--without-connection-token`; no connection-token file is required. Provide your sudo password in `sudo-password` using your secret manager, and do not commit it.
 
 Run with read-only credential mounts and a loopback-only port:
 
@@ -27,15 +27,13 @@ docker run --rm -p 127.0.0.1:8000:8000 \
   -e USERNAME=vscode \
   -e PUID=1000 \
   -e PGID=1000 \
-  -e CONNECTION_TOKEN_FILE=/run/secrets/connection-token \
   -e USER_PASSWORD_FILE=/run/secrets/sudo-password \
-  -v "$PWD/connection-token:/run/secrets/connection-token:ro" \
   -v "$PWD/sudo-password:/run/secrets/sudo-password:ro" \
   -v vscode-home:/home/vscode \
   vscode-server-dockerized
 ```
 
-Open `http://127.0.0.1:8000/?tkn=<connection-token>` in your browser, substituting the token privately. The sudo password and the web connection token are separate credentials. Use HTTPS when accessing the server remotely, and do not share token-bearing URLs.
+Point your authenticated reverse proxy at `http://127.0.0.1:8000` and access the editor through the proxy's HTTPS endpoint. The sudo password is not a web login. For a containerized proxy, use a private Docker network instead of publishing the backend port to clients.
 
 ## Configuration ⚙️
 
@@ -44,9 +42,8 @@ Environment variables:
 - `USERNAME` (default: `vscode`)
 - `PUID` (default: `1000`): Positive numeric UID; UID 0 is rejected
 - `PGID` (default: `1000`): Positive numeric GID; GID 0 is rejected
-- `CONNECTION_TOKEN_FILE` (required): Runtime-user-readable file containing a random token of at least 32 letters, digits, underscores or hyphens; missing/invalid tokens prevent startup
 - `USER_PASSWORD_FILE` (optional): Readable, nonempty single-line sudo password file; omit only if password-based sudo is not needed
-- `DEBUG` (default: `false`): Enables build diagnostics and startup account/group traces; tracing stays disabled while reading or processing tokens and passwords
+- `DEBUG` (default: `false`): Enables build diagnostics and startup account/group traces; tracing stays disabled while reading or processing the sudo password
 
 ## Volumes 📦
 
@@ -58,9 +55,7 @@ Example:
 
 ```bash
 docker run --rm -p 127.0.0.1:8000:8000 \
-  -e CONNECTION_TOKEN_FILE=/run/secrets/connection-token \
   -e USER_PASSWORD_FILE=/run/secrets/sudo-password \
-  -v "$PWD/connection-token:/run/secrets/connection-token:ro" \
   -v "$PWD/sudo-password:/run/secrets/sudo-password:ro" \
   -v "$PWD/workspace:/home/vscode/workspace" \
   -v vscode-home:/home/vscode \
@@ -69,18 +64,18 @@ docker run --rm -p 127.0.0.1:8000:8000 \
 
 ## Security Notes 🔒
 
-- Built-in connection-token authentication is mandatory. Protect remote access with TLS; use a dedicated random token, not your sudo password.
+- VS Code starts with **`--without-connection-token` by default**. The authenticated reverse proxy is the web security boundary: enforce authentication and HTTPS there, and prevent clients from reaching port 8000 directly. A private network alone is not authentication.
 - The entrypoint starts as root to initialize accounts, then uses `gosu` to run VS Code as the configured non-root UID. **Password-based sudo remains intentionally available.** Do not set `no-new-privileges`/`allowPrivilegeEscalation: false` if you need sudo.
 - Do not use privileged mode, host namespaces, the Docker socket, or sensitive host mounts. Container root is not a safe boundary around resources explicitly shared with it.
-- With `DEBUG=true`, account/group initialization and non-secret setup are traced. Token validation and the entire password-processing block always run with tracing off; tracing resumes only after credential variables are unset. VS Code CLI stdout is suppressed because upstream prints the connection token there; application diagnostics are written to `/home/<USERNAME>/.vscode/serve-web.log`, with stderr still available through container logs.
-- The Docker healthcheck expects HTTP 403 for an unauthenticated request. It checks the authentication listener, not a complete authenticated editor session. Helm probes use TCP to avoid embedding credentials.
+- With `DEBUG=true`, account/group initialization and non-secret setup are traced. The entire password-processing block runs with tracing off; tracing resumes only after the password variable is unset. Application stdout and stderr remain visible through container logs.
+- Docker and Helm probes check the internal TCP listener without triggering the editor's on-demand download. The publish smoke test separately checks HTTP access without a token. Neither check validates authentication at your external proxy.
 - The Helm chart enables ingress NetworkPolicy with no allowed peers by default; configure trusted ingress peers explicitly. Enforcement requires a compatible CNI. Development egress remains available.
 - Downloads use TLS verification. Claude Code and its remote shell installer are not included in the image.
 - Trivy blocks publication on fixable HIGH/CRITICAL findings. Unfixed findings remain excluded; this is a vulnerability gate, not proof that an image is vulnerability-free.
 
 ### Upgrading an existing deployment
 
-Before rolling out the hardened image/chart, add the separate connection-token Secret key and configure trusted ingress peers. Rotate sudo passwords previously used with `DEBUG=true`, and restrict access to historical container logs; this change does not erase already leaked credentials. Keep the existing username/password key names. Otherwise startup or network access will fail closed. Do not roll back to an unauthenticated image merely to restore access; prepare credentials and policy first.
+Before rolling out the hardened chart, configure trusted ingress peers for your authenticated reverse proxy and verify that direct backend access is blocked. Keep the existing username/password Secret keys; no connection-token key is needed. Rotate sudo passwords previously used with `DEBUG=true` and restrict historical container logs; this change does not erase already leaked credentials. Without trusted ingress rules, the default NetworkPolicy intentionally denies access.
 
 ### Local regression tests
 

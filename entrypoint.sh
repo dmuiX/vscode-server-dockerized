@@ -19,16 +19,6 @@ if [[ ! "$USERNAME" =~ ^[a-z_][a-z0-9_-]{0,31}$ || "$USERNAME" == root ]]; then
     echo "USERNAME must be a non-root Linux account name (up to 32 characters)." >&2
     exit 1
 fi
-if [[ -z "${CONNECTION_TOKEN_FILE:-}" || ! -r "$CONNECTION_TOKEN_FILE" || ! -s "$CONNECTION_TOKEN_FILE" ]]; then
-    echo "CONNECTION_TOKEN_FILE must reference a readable, nonempty token file." >&2
-    exit 1
-fi
-TOKEN=$(< "$CONNECTION_TOKEN_FILE")
-if [[ ! "$TOKEN" =~ ^[a-zA-Z0-9_-]{32,}$ ]]; then
-    echo "The connection token must contain at least 32 letters, digits, underscores or hyphens." >&2
-    exit 1
-fi
-unset TOKEN
 if [[ "${DEBUG:-false}" == true ]]; then set -x; fi
 
 # 2. Resolve Group ID conflicts and set the group
@@ -71,10 +61,6 @@ if [[ "$(id -u "$USERNAME")" != "$PUID" ]]; then
     echo "The account UID does not match PUID; refusing to start." >&2
     exit 1
 fi
-if ! gosu "$USERNAME" test -r "$CONNECTION_TOKEN_FILE"; then
-    echo "The connection token file must be readable by the runtime user." >&2
-    exit 1
-fi
 
 # 5. Keep tracing off for the entire credential-processing block.
 set +x
@@ -104,13 +90,10 @@ Home:  /home/${USERNAME}
 
 exec gosu "${USERNAME}" /opt/code-insiders \
     serve-web \
-    --connection-token-file "$CONNECTION_TOKEN_FILE" \
+    --without-connection-token \
     --accept-server-license-terms \
     --host 0.0.0.0 \
     --port 8000 \
     --server-data-dir "/home/${USERNAME}/.vscode/server-data" \
-    --cli-data-dir "/home/${USERNAME}/.vscode/cli-data" \
-    --log-to-file "/home/${USERNAME}/.vscode/serve-web.log" \
-    > /dev/null
-# The CLI prints a token-bearing URL to stdout even with --log off. Suppress
-# stdout; --log-to-file retains diagnostics without that startup URL.
+    --cli-data-dir "/home/${USERNAME}/.vscode/cli-data"
+# Authentication is provided by the trusted reverse proxy; direct access must be blocked.
