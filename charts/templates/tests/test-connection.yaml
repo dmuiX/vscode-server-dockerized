@@ -3,13 +3,20 @@ kind: Pod
 metadata:
   name: "{{ include "vscode-server.fullname" . }}-test-connection"
   labels:
+    app.kubernetes.io/component: connection-test
     {{- include "vscode-server.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": test
 spec:
+  automountServiceAccountToken: false
   containers:
     - name: wget
       image: busybox
-      command: ['wget']
-      args: ['{{ include "vscode-server.fullname" . }}:{{ .Values.service.port }}']
+      # If NetworkPolicy is enabled, explicitly allow this test pod before helm test.
+      # Authentication must reject the unauthenticated request, not return a page.
+      command: ['sh', '-c']
+      args:
+        - >-
+          wget -T 10 -S -O /dev/null http://{{ include "vscode-server.fullname" . }}:{{ .Values.service.port }}/ 2>&1
+          | grep -q 'HTTP/1.1 403'
   restartPolicy: Never
