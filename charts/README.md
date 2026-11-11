@@ -14,7 +14,7 @@ Prepare the username/password Secret and trusted ingress policy described below 
 ```bash
 helm repo add vscode-server-dockerized https://dmuiX.github.io/vscode-server-dockerized
 helm repo update
-helm install vscode-server vscode-server-dockerized/vscode-server -f trusted-ingress.yaml
+helm install vscode-server vscode-server-dockerized/vscode-server
 ```
 
 ## Authentication
@@ -40,7 +40,7 @@ The password is mounted read-only at `/etc/vscode-secrets/password`; the usernam
 
 ## Network isolation
 
-Ingress NetworkPolicy is enabled with no allowed peers by default. A compatible CNI must enforce it. Save an allow rule for your actual ingress controller as `trusted-ingress.yaml`, for example:
+The chart always includes ingress NetworkPolicy; no enable switch or separate policy manifest is needed. A compatible CNI must enforce it. With the default `networkPolicy.ingress: []`, all ingress is denied. Configure trusted peers for your actual authenticated proxy through the chart's normal values, for example:
 
 ```yaml
 networkPolicy:
@@ -60,7 +60,7 @@ networkPolicy:
 
 Both selectors must match. Adapt them to your controller, enforce authentication there and terminate TLS there. Egress remains available for normal development; this policy does not isolate outbound traffic. Kubernetes node/probe traffic has NetworkPolicy exceptions, so policy is not a substitute for authentication. Configure extra trusted peers explicitly when needed.
 
-`helm test` checks internal HTTP access without a token; it does not test the proxy's authentication. To run it with ingress policy enabled, explicitly permit the same-namespace test pod labeled `app.kubernetes.io/component: connection-test` on the `vscode-server` port for the duration of the test; the default deny policy intentionally does not grant it access.
+`helm test` checks internal HTTP access without a token; it does not test the proxy's authentication. To run it, explicitly permit the same-namespace test pod labeled `app.kubernetes.io/component: connection-test` on the `vscode-server` port for the duration of the test; the default deny policy intentionally does not grant it access.
 
 ## Important Notes
 
@@ -80,7 +80,6 @@ Both selectors must match. Adapt them to your controller, enforce authentication
 | `user.existingSecret` | Name of the credentials secret | `vscode-server-credentials` |
 | `user.userKey` | Key in secret for the username | `username` |
 | `user.passwordKey` | Key in secret for the sudo password | `password` |
-| `networkPolicy.enabled` | Render ingress NetworkPolicy (requires CNI enforcement) | `true` |
 | `networkPolicy.ingress` | Explicit trusted ingress rules; empty denies ingress | `[]` |
 | `service.type` | Kubernetes service type | `ClusterIP` |
 | `service.port` | Service port | `8000` |

@@ -83,7 +83,6 @@ readinessProbe:
 # Requires a CNI that enforces NetworkPolicy. Add trusted ingress peers explicitly.
 # Egress remains available for normal development and package installation.
 networkPolicy:
-  enabled: true
   ingress: []
 
 # Additional volumes on the output Deployment definition.

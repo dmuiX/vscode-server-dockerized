@@ -1,8 +1,6 @@
 VS Code runs with --without-connection-token; authentication must be enforced by your reverse proxy.
 Use HTTPS and block direct client access to the backend port.
-{{- if .Values.networkPolicy.enabled }}
-Ingress NetworkPolicy is enabled. Configure trusted ingress rules before connecting.
-{{- end }}
+Ingress NetworkPolicy is always included. Configure trusted ingress rules before connecting.
 
 1. Get the application URL by running these commands:
 {{- if contains "NodePort" .Values.service.type }}
