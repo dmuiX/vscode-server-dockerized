@@ -69,7 +69,7 @@ docker run --rm -p 127.0.0.1:8000:8000 \
 - Do not use privileged mode, host namespaces, the Docker socket, or sensitive host mounts. Container root is not a safe boundary around resources explicitly shared with it.
 - With `DEBUG=true`, account/group initialization and non-secret setup are traced. The entire password-processing block runs with tracing off; tracing resumes only after the password variable is unset. Application stdout and stderr remain visible through container logs.
 - Docker and Helm probes check the internal TCP listener without triggering the editor's on-demand download. The publish smoke test separately checks HTTP access without a token. Neither check validates authentication at your external proxy.
-- The Helm chart enables ingress NetworkPolicy with no allowed peers by default; configure trusted ingress peers explicitly. Enforcement requires a compatible CNI. Development egress remains available.
+- The Helm chart always includes ingress NetworkPolicy with no allowed peers by default; no enable switch or separate policy manifest is required. Configure trusted ingress peers explicitly. Enforcement requires a compatible CNI. Development egress remains available.
 - Downloads use TLS verification. Claude Code and its remote shell installer are not included in the image.
 - Trivy blocks publication on fixable HIGH/CRITICAL findings. Unfixed findings remain excluded; this is a vulnerability gate, not proof that an image is vulnerability-free.
 
