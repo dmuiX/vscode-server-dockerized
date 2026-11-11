@@ -80,6 +80,20 @@ fi
         self.assertIn("--connection-token-file " + str(self.token), calls)
         self.assertNotIn("--without-connection-token", calls)
 
+    def test_debug_traces_nonsecret_initialization_only(self):
+        enabled = self.run_startup(DEBUG="true")
+        self.assertEqual(enabled.returncode, 0, enabled.stderr)
+        self.assertIn("+ usermod -aG sudo vscode", enabled.stderr)
+        self.assertIn("+ install -d", enabled.stderr)
+        self.assertNotIn("+ chpasswd", enabled.stderr)
+        self.assertNotIn("+ TOKEN=", enabled.stderr)
+        for credential in (PASSWORD, TOKEN):
+            self.assertNotIn(credential, enabled.stdout + enabled.stderr)
+        disabled = self.run_startup(DEBUG="false")
+        self.assertEqual(disabled.returncode, 0, disabled.stderr)
+        self.assertNotIn("+ usermod", disabled.stderr)
+        self.assertNotIn("+ install", disabled.stderr)
+
     def test_zero_and_invalid_ids_are_rejected_before_account_changes(self):
         for field in ("PUID", "PGID"):
             for value in ("0", "00", "-1", "not-a-number"):

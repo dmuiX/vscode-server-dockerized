@@ -25,21 +25,6 @@ RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
     rm /tmp/terraform.zip && \
     chmod +x /usr/local/bin/terraform
 
-# Pinned native Claude Code binary; checksums are from the vendor's release manifest:
-# https://downloads.claude.ai/claude-code-releases/2.1.322/manifest.json
-# Direct binary deployment is supported: https://code.claude.com/docs/en/setup#binary-integrity-and-code-signing
-ARG CLAUDE_VERSION=2.1.322
-RUN ARCH=$(dpkg --print-architecture) && \
-    case "$ARCH" in \
-      amd64) PLATFORM=linux-x64; SHA256=bfb3703ad5380242328459bc62ada4bde8ae7ba57c6e1eeadb9c00e08874c478 ;; \
-      arm64) PLATFORM=linux-arm64; SHA256=f220ca50ea4f3222043ff83cc224a1262e0196e9897acc0871efa94235b0c1fd ;; \
-      *) echo "Unsupported Claude Code architecture: $ARCH" >&2; exit 1 ;; \
-    esac && \
-    curl -fsSL "https://downloads.claude.ai/claude-code-releases/${CLAUDE_VERSION}/${PLATFORM}/claude" -o /tmp/claude && \
-    printf '%s  %s\n' "$SHA256" /tmp/claude | sha256sum -c - && \
-    install -m 0755 /tmp/claude /usr/local/bin/claude && \
-    rm /tmp/claude
-
 # Setup VSCode Insiders
 ARG UPSTREAM_VERSION
 RUN retry() { \
@@ -98,8 +83,6 @@ LABEL org.opencontainers.image.title="VSCode Server Dockerized" \
 ARG DEBUG=false
 ENV DEBUG=${DEBUG}
 ENV DEBIAN_FRONTEND=noninteractive
-# Updates are delivered through reviewed image rebuilds, not background installers.
-ENV DISABLE_AUTOUPDATER=1
 
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
@@ -114,7 +97,6 @@ RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
 
 # Copy binaries and VSCode code folder from builder stage
 COPY --from=builder /usr/local/bin/terraform /usr/local/bin/terraform
-COPY --from=builder /usr/local/bin/claude /usr/local/bin/claude
 COPY --from=builder /opt/code-insiders /opt/code-insiders
 COPY entrypoint.sh /entrypoint.sh
 

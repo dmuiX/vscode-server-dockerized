@@ -1,5 +1,5 @@
 #!/bin/bash
-# Never trace credentials, even when DEBUG=true or Bash inherits tracing flags.
+# Begin with tracing off, including inherited flags, before reading credentials.
 set +x
 set +v
 set -euo pipefail
@@ -29,6 +29,7 @@ if [[ ! "$TOKEN" =~ ^[a-zA-Z0-9_-]{32,}$ ]]; then
     exit 1
 fi
 unset TOKEN
+if [[ "${DEBUG:-false}" == true ]]; then set -x; fi
 
 # 2. Resolve Group ID conflicts and set the group
 # Find the name of the group that currently owns the target GID, if any
@@ -75,7 +76,8 @@ if ! gosu "$USERNAME" test -r "$CONNECTION_TOKEN_FILE"; then
     exit 1
 fi
 
-# 5. Set the optional sudo password without shell tracing or credential logging.
+# 5. Keep tracing off for the entire credential-processing block.
+set +x
 if [[ -n "${USER_PASSWORD_FILE:-}" ]]; then
   if [[ ! -r "$USER_PASSWORD_FILE" || ! -s "$USER_PASSWORD_FILE" ]]; then
     echo "USER_PASSWORD_FILE must reference a readable, nonempty password file." >&2
@@ -89,6 +91,7 @@ if [[ -n "${USER_PASSWORD_FILE:-}" ]]; then
   printf '%s:%s\n' "$USERNAME" "$NEWPW" | chpasswd
   unset NEWPW
 fi
+if [[ "${DEBUG:-false}" == true ]]; then set -x; fi
 install -d -m 0700 -o "$PUID" -g "$PGID" "/home/$USERNAME/.vscode"
 
 # 6. Log final state and execute main application
