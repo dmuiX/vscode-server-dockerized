@@ -46,8 +46,7 @@ Environment variables:
 - `PGID` (default: `1000`): Positive numeric GID; GID 0 is rejected
 - `CONNECTION_TOKEN_FILE` (required): Runtime-user-readable file containing a random token of at least 32 letters, digits, underscores or hyphens; missing/invalid tokens prevent startup
 - `USER_PASSWORD_FILE` (optional): Readable, nonempty single-line sudo password file; omit only if password-based sudo is not needed
-- `DEBUG` (default: `false`): Build-time diagnostics only; the entrypoint never enables credential-bearing shell traces
-- `DISABLE_AUTOUPDATER` (default: `1`): Keeps the image's pinned Claude Code version until a reviewed rebuild
+- `DEBUG` (default: `false`): Enables build diagnostics and startup account/group traces; tracing stays disabled while reading or processing tokens and passwords
 
 ## Volumes 📦
 
@@ -73,10 +72,10 @@ docker run --rm -p 127.0.0.1:8000:8000 \
 - Built-in connection-token authentication is mandatory. Protect remote access with TLS; use a dedicated random token, not your sudo password.
 - The entrypoint starts as root to initialize accounts, then uses `gosu` to run VS Code as the configured non-root UID. **Password-based sudo remains intentionally available.** Do not set `no-new-privileges`/`allowPrivilegeEscalation: false` if you need sudo.
 - Do not use privileged mode, host namespaces, the Docker socket, or sensitive host mounts. Container root is not a safe boundary around resources explicitly shared with it.
-- Entrypoint shell tracing is disabled even when `DEBUG=true`. VS Code CLI stdout is suppressed because upstream prints the connection token there; application diagnostics are written to `/home/<USERNAME>/.vscode/serve-web.log`, with stderr still available through container logs.
+- With `DEBUG=true`, account/group initialization and non-secret setup are traced. Token validation and the entire password-processing block always run with tracing off; tracing resumes only after credential variables are unset. VS Code CLI stdout is suppressed because upstream prints the connection token there; application diagnostics are written to `/home/<USERNAME>/.vscode/serve-web.log`, with stderr still available through container logs.
 - The Docker healthcheck expects HTTP 403 for an unauthenticated request. It checks the authentication listener, not a complete authenticated editor session. Helm probes use TCP to avoid embedding credentials.
 - The Helm chart enables ingress NetworkPolicy with no allowed peers by default; configure trusted ingress peers explicitly. Enforcement requires a compatible CNI. Development egress remains available.
-- Downloads use TLS verification. Claude Code is installed as a version-pinned native binary with reviewed per-architecture SHA256 checksums, rather than executing a mutable remote shell installer. Update the version and both checksums together using the [official manifest and signature verification instructions](https://code.claude.com/docs/en/setup#binary-integrity-and-code-signing).
+- Downloads use TLS verification. Claude Code and its remote shell installer are not included in the image.
 - Trivy blocks publication on fixable HIGH/CRITICAL findings. Unfixed findings remain excluded; this is a vulnerability gate, not proof that an image is vulnerability-free.
 
 ### Upgrading an existing deployment
