@@ -198,16 +198,13 @@ jobs:
       - name: Create synthetic test credentials
         run: |
           printf '%s\n' 'ci-test-password-not-a-secret' > test-password.txt
-          printf '%064d\n' 1 > test-connection-token.txt
 
       # STEP 2: HEALTHCHECK LOOP
       - name: Test Container
         run: |
           docker run -d --name testcontainer \
             -v ${{ github.workspace }}/test-password.txt:/run/secrets/user_password:ro \
-            -v ${{ github.workspace }}/test-connection-token.txt:/run/secrets/connection_token:ro \
             -e USER_PASSWORD_FILE=/run/secrets/user_password \
-            -e CONNECTION_TOKEN_FILE=/run/secrets/connection_token \
             -e DEBUG=true \
             "${{ env.TEST_TAG }}"
 
@@ -225,16 +222,9 @@ jobs:
             sleep 1
           done
 
-          # Unauthenticated clients must be rejected; a valid token must still work.
-          STATUS=$(docker exec testcontainer curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8000/)
-          test "$STATUS" = 403
-          STATUS=$(docker exec testcontainer bash -euc '
-            TOKEN=$(< "$CONNECTION_TOKEN_FILE")
-            printf "cookie = \"vscode-tkn=%s\"\n" "$TOKEN" |
-              curl --config - --silent --output /dev/null --write-out "%{http_code}" --max-time 180 http://127.0.0.1:8000/
-          ')
-          [[ "$STATUS" == 200 || "$STATUS" == 302 ]]
-          if docker logs testcontainer 2>&1 | grep -F -f test-password.txt -f test-connection-token.txt > /dev/null; then
+          # Internal backend access needs no token; authentication is the proxy's job.
+          docker exec testcontainer curl --fail --silent --output /dev/null --max-time 180 http://127.0.0.1:8000/
+          if docker logs testcontainer 2>&1 | grep -F -f test-password.txt > /dev/null; then
             echo "::error::Container logs contain synthetic credentials"
             exit 1
           fi
@@ -248,7 +238,7 @@ jobs:
         if: always()
         run: |
           docker rm -f testcontainer || true
-          rm -f test-password.txt test-connection-token.txt
+          rm -f test-password.txt
 
       # BUILD 2: RELEASE (Push)
       - name: Build and Push (Release)

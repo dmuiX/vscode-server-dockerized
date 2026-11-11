@@ -23,7 +23,6 @@ user:
   existingSecret: vscode-server-credentials
   userKey: username
   passwordKey: password
-  connectionTokenKey: connection-token
 
 # This is for setting Kubernetes Annotations to a Pod.
 # For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
@@ -73,7 +72,7 @@ resources:
     memory: 1Gi
 
 # This is to setup the liveness and readiness probes more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
-# HTTP requests now require authentication; probes must not embed credentials.
+# Internal probes bypass the authenticated reverse proxy; no credentials are needed.
 livenessProbe:
   tcpSocket:
     port: vscode-server

@@ -1,5 +1,5 @@
-Authentication is required: supply the connection token privately as ?tkn=<connection-token>.
-Use HTTPS for remote access. Do not print or share token-bearing URLs.
+VS Code runs with --without-connection-token; authentication must be enforced by your reverse proxy.
+Use HTTPS and block direct client access to the backend port.
 {{- if .Values.networkPolicy.enabled }}
 Ingress NetworkPolicy is enabled. Configure trusted ingress rules before connecting.
 {{- end }}

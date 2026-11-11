@@ -9,7 +9,6 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 ENTRYPOINT = Path(os.environ.get("ENTRYPOINT_UNDER_TEST", ROOT / "entrypoint.sh"))
 PASSWORD = "synthetic-sudo-password-not-a-secret"
-TOKEN = "synthetic_connection_token_not_a_secret_0123456789"
 
 
 class StartupSecurityTests(unittest.TestCase):
@@ -21,8 +20,6 @@ class StartupSecurityTests(unittest.TestCase):
         self.bin.mkdir()
         self.password = self.temp / "password"
         self.password.write_text(PASSWORD + "\n")
-        self.token = self.temp / "token"
-        self.token.write_text(TOKEN + "\n")
         self.calls = self.temp / "calls"
         self.captured_password = self.temp / "chpasswd-input"
         self.env = {
@@ -33,7 +30,6 @@ class StartupSecurityTests(unittest.TestCase):
             "PGID": "1000",
             "DEBUG": "true",
             "USER_PASSWORD_FILE": str(self.password),
-            "CONNECTION_TOKEN_FILE": str(self.token),
             "MOCK_CALLS": str(self.calls),
             "MOCK_PASSWORD": str(self.captured_password),
         }
@@ -45,13 +41,7 @@ class StartupSecurityTests(unittest.TestCase):
         self.stub("chpasswd", '/bin/cat > "$MOCK_PASSWORD"')
         self.stub("gosu", '''
 printf '%s\n' "gosu $*" >> "$MOCK_CALLS"
-shift
-if [[ "$1" == test ]]; then
-    [[ "${MOCK_UNREADABLE_TOKEN:-false}" != true ]] && test -r "$3"
-else
-    # Model the upstream CLI's token-bearing startup URL on stdout.
-    printf 'Web UI available at http://localhost:8000/?tkn=%s\n' "''' + TOKEN + '''"
-fi
+printf 'Web UI available at http://localhost:8000/\n'
 ''')
 
     def stub(self, name, body):
@@ -71,14 +61,13 @@ fi
     def test_valid_startup_keeps_sudo_without_logging_credentials(self):
         result = self.run_startup()
         self.assertEqual(result.returncode, 0, result.stderr)
-        for credential in (PASSWORD, TOKEN):
-            self.assertNotIn(credential, result.stdout + result.stderr)
-            self.assertNotIn(credential, self.calls.read_text())
+        self.assertNotIn(PASSWORD, result.stdout + result.stderr)
+        self.assertNotIn(PASSWORD, self.calls.read_text())
         self.assertEqual(self.captured_password.read_text(), "vscode:" + PASSWORD + "\n")
         calls = self.calls.read_text()
         self.assertIn("usermod -aG sudo vscode", calls)
-        self.assertIn("--connection-token-file " + str(self.token), calls)
-        self.assertNotIn("--without-connection-token", calls)
+        self.assertIn("--without-connection-token", calls)
+        self.assertNotIn("--connection-token-file", calls)
 
     def test_debug_traces_nonsecret_initialization_only(self):
         enabled = self.run_startup(DEBUG="true")
@@ -86,9 +75,7 @@ fi
         self.assertIn("+ usermod -aG sudo vscode", enabled.stderr)
         self.assertIn("+ install -d", enabled.stderr)
         self.assertNotIn("+ chpasswd", enabled.stderr)
-        self.assertNotIn("+ TOKEN=", enabled.stderr)
-        for credential in (PASSWORD, TOKEN):
-            self.assertNotIn(credential, enabled.stdout + enabled.stderr)
+        self.assertNotIn(PASSWORD, enabled.stdout + enabled.stderr)
         disabled = self.run_startup(DEBUG="false")
         self.assertEqual(disabled.returncode, 0, disabled.stderr)
         self.assertNotIn("+ usermod", disabled.stderr)
@@ -108,17 +95,11 @@ fi
                 self.assertNotEqual(self.run_startup(USERNAME=value).returncode, 0)
                 self.assertFalse(self.calls.exists())
 
-    def test_missing_empty_and_weak_tokens_are_rejected(self):
-        self.assertNotEqual(self.run_startup(CONNECTION_TOKEN_FILE="").returncode, 0)
-        for content in ("", "short", "x" * 32 + "\ninjected"):
-            self.token.write_text(content)
-            self.assertNotEqual(self.run_startup().returncode, 0)
-            self.assertFalse(self.calls.exists())
-
-    def test_runtime_user_must_be_able_to_read_token(self):
-        result = self.run_startup(MOCK_UNREADABLE_TOKEN="true")
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("readable by the runtime user", result.stderr)
+    def test_proxy_mode_needs_no_token_and_preserves_application_output(self):
+        result = self.run_startup()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Web UI available at http://localhost:8000/", result.stdout)
+        self.assertNotIn("--log-to-file", self.calls.read_text())
 
     def test_mismatched_existing_uid_is_rejected(self):
         self.assertNotEqual(self.run_startup(MOCK_UID="0").returncode, 0)

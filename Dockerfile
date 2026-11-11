@@ -110,9 +110,9 @@ USER 0
 WORKDIR / 
 
 # Action-update migration: Hadolint 2.15 applies DL3025 to healthchecks.
-# Keep the existing Bash options and normalize failures to exit code 1.
+# Check the internal listener without triggering the editor's on-demand download.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD ["/bin/bash", "-euo", "pipefail", "-c", "test \"$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 3 http://127.0.0.1:8000/)\" = 403"]
+  CMD ["/bin/bash", "-euo", "pipefail", "-c", "true > /dev/tcp/127.0.0.1/8000"]
 
  # Just Information tells the User the Application is using Port 8000
 EXPOSE 8000
