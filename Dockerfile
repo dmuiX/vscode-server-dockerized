@@ -101,12 +101,15 @@ RUN if [ "$DEBUG" = "true" ]; then set -x; fi && \
     chown -R root:root /opt/code-insiders /entrypoint.sh && \
     curl -fsSL https://claude.ai/install.sh | bash
 
-USER root
+# Action-update migration: Hadolint 2.15 adds DL3066; UID 0 retains root behavior.
+USER 0
 # Will set to / anyways with this is explicit !
 WORKDIR / 
 
+# Action-update migration: Hadolint 2.15 applies DL3025 to healthchecks.
+# Keep the existing Bash options and normalize failures to exit code 1.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:8000 || exit 1
+  CMD ["/bin/bash", "-euo", "pipefail", "-c", "curl -f http://localhost:8000 || exit 1"]
 
  # Just Information tells the User the Application is using Port 8000
 EXPOSE 8000
