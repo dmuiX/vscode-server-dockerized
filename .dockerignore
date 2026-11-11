@@ -1,0 +1,8 @@
+.git
+.env
+.env.*
+connection-token
+sudo-password
+test-password.txt
+test-connection-token.txt
+**/__pycache__
