@@ -25,6 +25,7 @@ jobs:
       needs_update: ${{ steps.check.outputs.needs_update }}
       needs_chart: ${{ steps.check.outputs.needs_chart }}
       version: ${{ steps.check.outputs.version }}
+      chart_version: ${{ steps.check.outputs.chart_version }}
       calver: ${{ steps.check.outputs.calver }}
       commit: ${{ steps.check.outputs.commit }}
       image_name_lower: ${{ steps.lowercase.outputs.image_name }}
@@ -43,6 +44,8 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Check Upstream & Registry
         id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Authenticate the chart release lookup.
         run: |
           echo "Checking latest VSCode Insiders commit..."
 
@@ -57,11 +60,15 @@ jobs:
           SHORT_COMMIT=${UPSTREAM_COMMIT:0:7}
           CALVER=$(date +%Y.%m.%d)
           VERSION="${CALVER}-${SHORT_COMMIT}"
+          # Existing release bug (not an action migration): SemVer forbids leading
+          # zeros in date components and numeric prereleases; preserve Docker tags.
+          CHART_VERSION="${CALVER//.0/.}-sha${SHORT_COMMIT}"
 
           echo "Latest VSCode Insiders commit: $UPSTREAM_COMMIT"
           echo "commit=$UPSTREAM_COMMIT" >> $GITHUB_OUTPUT
           echo "calver=$CALVER" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "chart_version=$CHART_VERSION" >> $GITHUB_OUTPUT
 
           # 2. Check if this version exists in YOUR registry
           MY_IMAGE="${{ env.REGISTRY }}/${{ steps.lowercase.outputs.image_name }}"
@@ -88,7 +95,7 @@ jobs:
           fi
 
           # 3. Check if helm chart GitHub release for this version exists
-          if gh release view "vscode-server-$VERSION" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+          if gh release view "vscode-server-$CHART_VERSION" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             echo "Helm chart release already exists."
             echo "needs_chart=false" >> $GITHUB_OUTPUT
           else
@@ -267,10 +274,12 @@ jobs:
       - name: Update Chart version
         run: |
           VERSION="${{ needs.check-upstream.outputs.version }}"
-          sed -i "s/^version:.*/version: \"$VERSION\"/" charts/Chart.yaml
+          CHART_VERSION="${{ needs.check-upstream.outputs.chart_version }}"
+          # Chart version must be SemVer; appVersion must retain the published image tag.
+          sed -i "s/^version:.*/version: \"$CHART_VERSION\"/" charts/Chart.yaml
           sed -i "s/^appVersion:.*/appVersion: \"$VERSION\"/" charts/Chart.yaml
           git add charts/Chart.yaml
-          git diff --staged --quiet || git commit -m "chore: update chart to $VERSION"
+          git diff --staged --quiet || git commit -m "chore(helm): update chart to $CHART_VERSION"
           git pull --rebase origin main
           git push
 
@@ -302,7 +311,7 @@ jobs:
           {
             echo "### Helm Chart Release"
             echo ""
-            echo "- Chart version: \`${{ needs.check-upstream.outputs.version }}\`"
+            echo "- Chart version: \`${{ needs.check-upstream.outputs.chart_version }}\`"
             echo "- Changed charts: \`${{ steps.chart-releaser.outputs.changed_charts }}\`"
             echo "- Pages URL: \`https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/\`"
           } >> "$GITHUB_STEP_SUMMARY"
