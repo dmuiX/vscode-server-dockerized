@@ -9,6 +9,8 @@ A Helm chart to deploy [vscode-server-dockerized](https://github.com/dmuiX/vscod
 
 ## Installation
 
+Prepare the username/password Secret and trusted ingress policy described below before installing. Ingress is denied by default. Web authentication belongs to your reverse proxy; the container runs with `--without-connection-token` and requires no token Secret.
+
 ```bash
 helm repo add vscode-server-dockerized https://dmuiX.github.io/vscode-server-dockerized
 helm repo update
@@ -17,29 +19,53 @@ helm install vscode-server vscode-server-dockerized/vscode-server
 
 ## Authentication
 
-The chart expects a Kubernetes Secret containing user credentials. Create it before installing:
+The chart expects a Secret containing the username and sudo password. Prepare `sudo-password` through your secret manager; never commit it. This password is for sudo inside the container, not web authentication.
 
 ```bash
-kubectl create secret generic credentials \
-  --from-literal=username=myuser \
-  --from-literal=password=mypassword
+kubectl create secret generic vscode-server-credentials \
+  --from-literal=username=vscode \
+  --from-file=password=./sudo-password
 ```
 
 The secret name and keys are configurable via `values.yaml`:
 
 ```yaml
 user:
-  existingSecret: credentials
+  existingSecret: vscode-server-credentials
   userKey: username
   passwordKey: password
 ```
 
-The password is mounted as a file at `/run/secrets/password` (as expected by the container entrypoint).
-The username is injected as the `USERNAME` environment variable.
+The password is mounted read-only at `/etc/vscode-secrets/password`; the username is injected as `USERNAME`. No connection-token file or key is required. VS Code intentionally uses `--without-connection-token`: enforce web authentication and HTTPS at the reverse proxy and block direct access to the backend Service/port.
+
+## Network isolation
+
+The chart always includes ingress NetworkPolicy; no enable switch or separate policy manifest is needed. A compatible CNI must enforce it. With the default `networkPolicy.ingress: []`, all ingress is denied. Configure trusted peers for your actual authenticated proxy through the chart's normal values, for example:
+
+```yaml
+networkPolicy:
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+              app.kubernetes.io/component: controller
+      ports:
+        - protocol: TCP
+          port: vscode-server
+```
+
+Both selectors must match. Adapt them to your controller, enforce authentication there and terminate TLS there. Egress remains available for normal development; this policy does not isolate outbound traffic. Kubernetes node/probe traffic has NetworkPolicy exceptions, so policy is not a substitute for authentication. Configure extra trusted peers explicitly when needed.
+
+`helm test` checks internal HTTP access without a token; it does not test the proxy's authentication. To run it, explicitly permit the same-namespace test pod labeled `app.kubernetes.io/component: connection-test` on the `vscode-server` port for the duration of the test; the default deny policy intentionally does not grant it access.
 
 ## Important Notes
 
-- **Root required**: The container must run as root because the entrypoint changes UID, groups, username and password at startup. It then drops privileges and runs as UID 1000.
+- **Root initialization and sudo are intentional**: The entrypoint initializes accounts as root, then runs VS Code as UID 1000 by default. UID/GID 0 and root usernames are rejected. Password-based sudo remains available; `allowPrivilegeEscalation: false` would prevent it. Never use privileged mode, host namespaces, Docker-socket mounts or sensitive host mounts.
+- **Upgrade preparation**: Keep the existing username/password Secret; no connection-token key is needed. Configure trusted ingress peers for the authenticated reverse proxy and verify that direct backend access is blocked. Internal probes use TCP and do not test proxy authentication.
 - **imagePullSecrets**: If pulling from a private registry (e.g. GHCR), you must configure `imagePullSecrets` in your values.
 
 ## Values
@@ -51,9 +77,10 @@ The username is injected as the `USERNAME` environment variable.
 | `image.tag` | Image tag (defaults to chart `appVersion`) | `""` |
 | `image.pullPolicy` | Image pull policy | `IfNotPresent` |
 | `imagePullSecrets` | Registry pull secrets | `[]` |
-| `user.existingSecret` | Name of the credentials secret | `credentials` |
+| `user.existingSecret` | Name of the credentials secret | `vscode-server-credentials` |
 | `user.userKey` | Key in secret for the username | `username` |
-| `user.passwordKey` | Key in secret for the password | `password` |
+| `user.passwordKey` | Key in secret for the sudo password | `password` |
+| `networkPolicy.ingress` | Explicit trusted ingress rules; empty denies ingress | `[]` |
 | `service.type` | Kubernetes service type | `ClusterIP` |
 | `service.port` | Service port | `8000` |
 | `resources.requests.cpu` | CPU request | `100m` |
