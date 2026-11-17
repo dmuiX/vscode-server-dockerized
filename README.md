@@ -1,17 +1,17 @@
-# vscode-server-dockerized
+# 💻 vscode-server-dockerized
 
 A browser-based **VS Code Insiders** workspace with Terraform, packaged as an Ubuntu 24.04 container and a Helm chart. It runs the upstream `code-insiders serve-web` command on port **8000**.
 
 > **An authenticated HTTPS reverse proxy is required.** VS Code runs with `--without-connection-token`; the backend has no web login. Block direct client access to port 8000. A private network alone is not authentication.
 
-## What is included
+## 📦 What is included
 
 - A multi-stage [Dockerfile](Dockerfile) with the VS Code Insiders CLI, Terraform, Git, shell utilities and password-based sudo.
 - [Root initialization followed by a non-root editor process](entrypoint.sh), with configurable username, UID and GID.
 - A [Helm chart](charts/README.md) with a Deployment, ClusterIP Service and an always-present ingress NetworkPolicy that denies ingress by default.
 - GitHub Actions for startup regressions, image scanning and publication, SBOM/provenance generation, image signing, chart releases and GHCR retention.
 
-## Run with Docker
+## 🐳 Run with Docker
 
 Prepare an authenticated reverse proxy first. If you need password-based sudo, provision a nonempty, single-line `sudo-password` file through your secret manager; never commit it. Otherwise, omit `USER_PASSWORD_FILE` and its secret mount below.
 
@@ -35,7 +35,7 @@ Point a host-based authenticated proxy at `http://127.0.0.1:8000` and access the
 
 To use the published image instead of building locally, replace the final image name with `ghcr.io/dmuix/vscode-server-dockerized:latest`. The publish workflow targets **`linux/amd64`**. The Dockerfile also handles `arm64` downloads, but CI does not test or publish that architecture.
 
-## Configuration and persistence
+## 🔧 Configuration and persistence
 
 | Environment variable | Default | Purpose |
 | --- | --- | --- |
@@ -51,7 +51,7 @@ The image contains the CLI; the web editor is downloaded on demand. TCP health p
 
 For local builds, `--build-arg UPSTREAM_VERSION=<40-character-commit>` selects a specific Insiders commit; otherwise the latest commit for the architecture is resolved. Terraform follows its latest upstream release at build time, so local builds are not fully version-pinned.
 
-## Kubernetes
+## ☸️ Kubernetes
 
 Use the [chart guide](charts/README.md) for Helm installation, Secret creation and trusted-proxy policy examples. The [default values](charts/values.yaml) and [templates](charts/templates) define the deployment contract:
 
@@ -62,7 +62,7 @@ Use the [chart guide](charts/README.md) for Helm installation, Secret creation a
 
 Before upgrading an existing deployment, configure trusted proxy peers and verify that direct backend access is blocked. Keep the existing username/password Secret keys; no token key is required. With no trusted ingress rules, the default policy intentionally denies access.
 
-## Security model and caveats
+## 🔒 Security model and caveats
 
 - **Root at startup, non-root editor:** the entrypoint needs root to initialize accounts, then uses `gosu` to run VS Code as the requested UID. UID/GID 0 are rejected. Do not force a non-root container entrypoint with `--user` or `runAsNonRoot`.
 - **Sudo is intentional:** password-based sudo remains available when configured. Do not set `no-new-privileges` / `allowPrivilegeEscalation: false` if you need sudo.
@@ -70,7 +70,7 @@ Before upgrading an existing deployment, configure trusted proxy peers and verif
 - **Handle logs as operational data:** password processing runs with tracing off, and tracing resumes only after the password variable is unset. Application stdout/stderr remain visible in container logs. Rotate sudo passwords previously used with `DEBUG=true` and restrict historical logs; the current guards cannot erase older leaks.
 - **Know what is downloaded:** VS Code and Terraform downloads use HTTPS with certificate verification. Claude Code and its remote shell installer are not included.
 
-## Delivery and validation
+## 🚀 Delivery and validation
 
 ### Image and chart publication
 
