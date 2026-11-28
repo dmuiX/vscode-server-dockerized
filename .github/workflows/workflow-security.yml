@@ -34,3 +34,16 @@ jobs:
         uses: zizmorcore/zizmor-action@1b4550e929643b8b26a62303c6bd64814271a4f1 # v0.9.2
         with:
           inputs: .github/workflows
+
+  osv-scanner:
+    name: OSV & Malicious Packages (osv-scanner)
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@32d3cd482bdadfb38b186c0ad1b031902d55d932 # v2.7.1
+    with:
+      scan-args: |-
+        -r
+        .
+      fail-on-vuln: false
